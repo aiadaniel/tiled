@@ -1,0 +1,174 @@
+<!-- see mapwriter.cpp -->
+<module name="bmap">
+    <!-- 属性，整个map的属性，有定义才有 1.10.2支持bool/int/float/string(no type )/color(#ffffff00)/file/object -->
+    <bean name="Property">
+        <var name="name" type="string"/>
+        <!-- Bool = 0,Integer = 1,Float = 2,String = 3, -->
+        <var name="type" type="int"/>
+        <var name="value" type="string"/>
+    </bean>
+
+    <!--  -->
+    <bean name="Grid">
+        <var name="orientation" type="int"/>
+        <var name="width" type="int"/>
+        <var name="height" type="int"/>
+    </bean>
+    <!--  -->
+    <bean name="Transformations">
+        <var name="hflip" type="int"/>
+        <var name="vflip" type="int"/>
+        <var name="rotate" type="int"/>
+        <var name="preferuntransformed" type="int"/>
+    </bean>
+    <!--  -->
+    <bean name="TileOffset">
+        <var name="x" type="int"/>
+        <var name="y" type="int"/>
+    </bean>
+
+    <bean name="FormatData">
+        <var name="encoding" type="string"/>
+        <var name="data" type="string"/>
+    </bean>
+    <!-- 对应的图片索引 -->
+    <bean name="Image">
+        <var name="source" type="int"/>
+        <var name="trans" type="string"/>
+        <var name="width" type="int"/>
+        <var name="height" type="int"/>
+        <!-- when source = nil -->
+        <var name="format" type="string"/>
+        <var name="data" type="FormatData"/>
+    </bean>
+    <bean name="Animation">
+        <var name="tileid" type="int"/>
+        <var name="duration" type="int"/>
+    </bean>
+    <!-- 瓦片 -->
+    <bean name="Tile">
+        <var name="id" type="int"/>
+        <!-- image rect (ignore) -->
+        <!-- ... other not important ignore, see mapwriter.writeimage -->
+
+        <var name="animation" type="list,Animation"/>
+
+        <!-- ... wangsets ignore -->
+    </bean>
+    <!-- 瓦片集  -->
+    <bean name="TileSet">
+        <var name="firstgid" type="int"/>
+        <!-- when firstgid > 0 -->
+        <var name="source" type="int"/>
+
+        <var name="name" type="int"/>
+        <!-- when classname -->
+        <var name="class" type="string"/>
+
+        <var name="tilewidth" type="int"/>
+        <var name="tileheight" type="int"/>
+        <!-- when spacing != 0 -->
+        <var name="spacing" type="int"/>
+        <!-- when margin != 0 -->
+        <var name="margin" type="int"/>
+        <var name="tilecount" type="int"/>
+        <var name="columns" type="int"/>
+
+        <!-- when ... -->
+        <var name="backgroundcolor" type="string"/>
+        <var name="objectalignment" type="string"/>
+        <var name="tilerendersize" type="string"/>
+        <var name="fillmode" type="string"/>
+
+        <!-- here editorsettings (needn't?) -->
+
+        <!-- when offset -->
+        <var name="tileoffset" type="TileOffset"/>
+        <!-- when not orthogonal and tilesize!=gridsize -->
+        <var name="grid" type="Grid"/>
+        <!-- when trans flag -->
+        <var name="transformations" type="Transformations"/>
+
+        <var name="properties" type="map,string,Property"/>
+    </bean>
+
+
+    <!-- 图层 part of no important ignore -->
+    <bean name="Point">
+        <var name="x" type="int"/>
+        <var name="y" type="int"/>
+    </bean>
+    <bean name="ObjectItem">
+        <var name="id" type="int"/>
+        <var name="gid" type="int"/>
+        <var name="x" type="int"/>
+        <var name="y" type="int"/>
+        <var name="width" type="int"/>
+        <var name="height" type="int"/>
+        <!-- 0 polygon  1 polyline -->
+        <var name="poly" type="list,Point"/>
+    </bean>
+    <bean name="LayerData">
+        <var name="encoding" type="string"/>
+        <var name="compression" type="string"/>
+        <var name="data" type="string"/>
+    </bean>
+    <bean name="Layer">
+        <!-- tile 0/objectgroup 1/imagelayer 2/group 3 -->
+        <var name="type" type="int"/>
+
+        <var name="id" type="int"/>
+        <var name="name" type="string"/>
+        <var name="width" type="int"/>
+        <var name="height" type="int"/>
+        <var name="visible" type="int"/>
+        <var name="locked" type="int"/>
+        <var name="opacity" type="int"/>
+        <var name="tintcolor" type="string"/>
+
+        <var name="offsetx" type="int"/>
+        <var name="offsety" type="int"/>
+
+        <!-- imagelayer & grouplayer not add yet -->
+
+        <var name="properties" type="map,string,Property"/>
+
+        <var name="data" type="LayerData"/>
+    </bean>
+
+    <!-- 最终导出 -->
+    <bean name="BMap">
+        <!-- map开始 -->
+        <var name="version" type="string"/>
+        <var name="tiledversion" type="string"/>
+        <var name="orientation" type="string"/>
+        <var name="renderorder" type="string"/>
+        <var name="width" type="int"/>
+        <var name="height" type="int"/>
+        <var name="tilewidth" type="int" />
+        <var name="tileheight" type="int"/>
+        <var name="infinite" type="int"/>
+
+        <!-- 六角交错 -->
+        <var name="hexsidelength" type="int"/>
+        <!-- 六角、等角交错 -->
+        <var name="staggeraxis" type="string"/>
+        <var name="staggerindex" type="string"/>
+
+        <!-- parallaxoriginx... ignore -->
+
+        <var name="nextlayerid" type="int"/>
+        <var name="nextobjectid" type="int"/>
+
+        <var name="properties" type="map,string,Property"/>
+
+        <!-- map结束 -->
+
+        <!-- 1.瓦片集 内嵌才有，可能多个 -->
+        <var name="tileset" type="list,TileSet"/>
+
+        <!-- 2.图层开始 tile/objectgroup/imagelayer/group -->
+        <var name="layer" type="list,Layer"/>
+
+    </bean>
+</module>
