@@ -22,6 +22,10 @@
 
 #include "xbin/Map.hpp"
 
+#include "bright/CommonMacros.h"
+#include "bright/CfgBean.hpp"
+#include "luban/Gen/gen_types.h"
+
 #include "logginginterface.h"
 #include "map.h"
 #include "mapobject.h"
@@ -30,6 +34,7 @@
 #include "tile.h"
 #include "tiled.h"
 #include "tilelayer.h"
+#include "fileformat.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -39,6 +44,7 @@
 #include <map>
 #include <memory>
 #include <sstream>
+#include <tileset.h>
 
 namespace
 {
@@ -100,6 +106,9 @@ namespace
 }
 
 namespace xbin {
+
+using namespace bright;
+using namespace cfg;
 
 void XBinPlugin::initialize()
 {
@@ -242,6 +251,95 @@ bool XBinMapFormat::write(const Tiled::Map *map, const QString &fileName, Option
     Q_UNUSED(options)
 
     try {
+        bmap::BMap _map;
+
+        //todo properties
+
+        _map.version = FileFormat::versionString().toStdString();
+        _map.tiledversion = QCoreApplication::applicationVersion().toStdString();
+
+        _map.orientation = orientationToString(map->orientation()).toStdString();
+        _map.renderorder = renderOrderToString(map->renderOrder()).toStdString();
+
+        _map.width = map->width();
+        _map.height = map->height();
+        _map.tilewidth = map->tileWidth();
+        _map.tileheight = map->tileHeight();
+
+        _map.infinite = map->infinite();
+
+        if (map->orientation() == Tiled::Map::Hexagonal) {
+            _map.hexsidelength = map->hexSideLength();
+        }
+        if (map->orientation() == Tiled::Map::Staggered || map->orientation() == Tiled::Map::Hexagonal) {
+            _map.staggeraxis = staggerAxisToString(map->staggerAxis()).toStdString();
+            _map.staggerindex = staggerIndexToString(map->staggerIndex()).toStdString();
+        }
+        _map.nextlayerid = map->nextLayerId();
+        _map.nextobjectid = map->nextObjectId();
+
+        // properties
+
+        unsigned firstGid = 1;
+        for (const Tiled::SharedTileset &ts : map->tilesets()) {
+            bmap::TileSet item;
+            if (firstGid > 0) {
+                item.firstgid = firstGid;
+                const QString &fileName = ts->fileName();
+                if (!fileName.isEmpty()) {
+                    QString source = fileName;
+                    item.source = source.toStdString();
+                }
+            } else {
+
+            }
+            item.name = ts->name().toStdString();
+            item.tilewidth = ts->tileWidth();
+            item.tileheight = ts->tileHeight();
+
+            const int tileSpacing = ts->tileSpacing();
+            const int margin = ts->margin();
+            if (tileSpacing != 0 ) {
+                item.spacing = tileSpacing;
+            }
+            if (margin != 0 ) {
+                item.margin = margin;
+            }
+            item.tilecount = ts->tileCount();
+            item.columns = ts->columnCount();
+
+            //...
+
+            // editor setting...
+
+            const QPoint offset = ts->tileOffset();
+            if (!offset.isNull()) {
+                item.tileoffset->x = offset.x();
+                item.tileoffset->y = offset.y();
+            }
+
+            // orthogonal & gridsize...
+
+            // transformation...
+
+            // properties...
+            
+            if (ts->image().isNull() && ts->imageSource().isEmpty() ) {
+
+            } else {
+                QString fileRef = toFileReference(source, mUseAbsolutePaths ? QString()
+                                                                    : mDir.path());
+                item.image->source = 
+                item.image->trans = trans;
+                item.image->width = width;
+                item.image->height = height;
+                item.image->format = format;
+                item.image->data = data;
+            }
+        }
+
+
+
         xbin::Map tmap;
         //tmap.id = map->name();
         tiledToXbinProperties(map->properties(), tmap.props);
@@ -396,12 +494,12 @@ bool XBinMapFormat::write(const Tiled::Map *map, const QString &fileName, Option
 
 QString XBinMapFormat::nameFilter() const
 {
-    return tr("Tbin map files (*.tbin)");
+    return tr("Tbin map files (*.bin)");
 }
 
 QString XBinMapFormat::shortName() const
 {
-    return QStringLiteral("tbin");
+    return QStringLiteral("xbin");
 }
 
 bool XBinMapFormat::supportsFile(const QString &fileName) const
@@ -410,10 +508,11 @@ bool XBinMapFormat::supportsFile(const QString &fileName) const
     if (!file)
         return false;
 
-    std::string magic(6, '\0');
-    file.read(&magic[0], static_cast<std::streamsize>(magic.length()));
+    // std::string magic(6, '\0');
+    // file.read(&magic[0], static_cast<std::streamsize>(magic.length()));
 
-    return magic == "tBIN10";
+    // return magic == "tBIN10";
+    return true;
 }
 
 QString XBinMapFormat::errorString() const

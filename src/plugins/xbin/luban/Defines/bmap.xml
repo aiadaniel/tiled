@@ -59,11 +59,11 @@
     <bean name="TileSet">
         <var name="firstgid" type="int"/>
         <!-- when firstgid > 0 -->
-        <var name="source" type="int"/>
+        <var name="source" type="string"/>
 
-        <var name="name" type="int"/>
+        <var name="name" type="string"/>
         <!-- when classname -->
-        <var name="class" type="string"/>
+        <!-- <var name="class" type="string"/> -->
 
         <var name="tilewidth" type="int"/>
         <var name="tileheight" type="int"/>
@@ -84,6 +84,8 @@
 
         <!-- when offset -->
         <var name="tileoffset" type="TileOffset"/>
+        
+        <var name="image" type="Image"/>
         <!-- when not orthogonal and tilesize!=gridsize -->
         <var name="grid" type="Grid"/>
         <!-- when trans flag -->

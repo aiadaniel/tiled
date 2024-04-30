@@ -27,6 +27,7 @@
 
 #include <QObject>
 
+
 namespace Tiled {
 class Map;
 }

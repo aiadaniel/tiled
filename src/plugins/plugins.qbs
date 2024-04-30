@@ -17,6 +17,7 @@ Project {
         "tbin",
         "tengine",
         "tscn",
-        "yy"
+        "yy",
+        "xbin",
     ]
 }

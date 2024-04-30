@@ -1,0 +1,9 @@
+{
+    "qtConfigure.qtKitDir": "c:/Qt/5.15.2/msvc2019_64",
+    "files.associations": {
+        "memory": "cpp",
+        "chrono": "cpp",
+        "format": "cpp",
+        "thread": "cpp"
+    }
+}

@@ -41,3 +41,4 @@ gmon.out
 
 .cache.meta
 **/Gen/*
+/build/*
