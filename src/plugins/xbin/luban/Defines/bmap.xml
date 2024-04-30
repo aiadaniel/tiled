@@ -171,4 +171,7 @@
         <var name="layer" type="list,Layer"/>
 
     </bean>
+
+    <table name="TbBMap" value="BMap" input="bmap.xml"/>
+	
 </module>

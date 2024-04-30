@@ -9,8 +9,9 @@
 	<group name="s" default="1"/> server
 	<group name="e" default="1"/> editor
 	
+	<!-- <import name="bmap.xml"/> -->
 	<import name="."/>
-	
+
 	<!-- <importexcel name="__tables__.xlsx" type="table"/> 相对data目录
 	<importexcel name="__enums__.xlsx" type="enum"/>相对data目录
 	<importexcel name="__beans__.xlsx" type="bean"/>相对data目录 -->

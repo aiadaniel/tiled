@@ -38,3 +38,6 @@ gmon.out
 # Vim files
 *.swp
 *.swo
+
+.cache.meta
+**/Gen/*
