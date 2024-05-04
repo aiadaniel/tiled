@@ -23,6 +23,7 @@
 #include "xbin_global.h"
 
 #include "mapformat.h"
+#include "gidmapper.h"
 #include "plugin.h"
 
 #include <QObject>
@@ -62,8 +63,28 @@ public:
     QString shortName() const override;
     QString errorString() const override;
 
+private:
+    void writeImage(const Tiled::SharedTileset &ts,
+                std::shared_ptr<bmap::TileSet> &item,
+                const QUrl &source,
+                const QPixmap &image,
+                const QColor &transColor,
+                const QSize size);
+    void writeLayerAttributes(std::shared_ptr<bmap::Layer> &bl, const Tiled::Layer &layer);
+    void writeTileLayer(std::shared_ptr<bmap::Layer> &bl, const Tiled::TileLayer &tileLayer);
+    void writeTileLayerData(std::shared_ptr<bmap::Layer> &bl, const Tiled::TileLayer &tileLayer, QRect bounds);
+    void writeObjectGroupForTile(bmap::Tile &bt, const Tiled::ObjectGroup &objectGroup);
+    void writeObjectGroup(std::shared_ptr<bmap::Layer> &bl, const Tiled::ObjectGroup &objectGroup);
+    void writeObject(bright::SharedPtr<cfg::bmap::ObjectItem> oitem, const Tiled::MapObject &mapObject);
+
 protected:
     QString mError;
+
+private:
+    QDir mDir;      // The directory in which the file is being saved
+    Tiled::GidMapper mGidMapper;
+    Tiled::Map::LayerDataFormat mLayerDataFormat;
+    int mCompressionlevel;
 };
 
 } // namespace Json

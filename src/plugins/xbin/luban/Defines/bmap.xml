@@ -7,10 +7,23 @@
         <var name="type" type="int"/>
         <var name="value" type="string"/>
     </bean>
+    <!-- object group item -->
+    <bean name="ObjectItem">
+        <var name="id" type="int"/>
+        <!-- <var name="template" type="int"/> -->
+        <var name="gid" type="int"/>
+        <var name="x" type="int"/>
+        <var name="y" type="int"/>
+        <var name="width" type="int"/>
+        <var name="height" type="int"/>
+        <!-- ... -->
+        <var name="polygon" type="list,Point"/>
+        <var name="polyline" type="list,Point"/>
+    </bean>
 
     <!--  -->
     <bean name="Grid">
-        <var name="orientation" type="int"/>
+        <var name="orientation" type="string"/>
         <var name="width" type="int"/>
         <var name="height" type="int"/>
     </bean>
@@ -28,18 +41,19 @@
     </bean>
 
     <bean name="FormatData">
-        <var name="encoding" type="string"/>
-        <var name="data" type="string"/>
+        <!-- <var name="encoding" type="string"/> -->
+        <var name="data" type="bytes"/>
     </bean>
+
     <!-- 对应的图片索引 -->
     <bean name="Image">
-        <var name="source" type="int"/>
-        <var name="trans" type="string"/>
+        <var name="source" type="string"/>
+        <!-- <var name="trans" type="string"/> -->
         <var name="width" type="int"/>
         <var name="height" type="int"/>
         <!-- when source = nil -->
-        <var name="format" type="string"/>
-        <var name="data" type="FormatData"/>
+        <!-- <var name="format" type="string"/> -->
+        <var name="data" type="FormatData"/> 
     </bean>
     <bean name="Animation">
         <var name="tileid" type="int"/>
@@ -48,17 +62,22 @@
     <!-- 瓦片 -->
     <bean name="Tile">
         <var name="id" type="int"/>
-        <!-- image rect (ignore) -->
-        <!-- ... other not important ignore, see mapwriter.writeimage -->
+        <!-- image rect (ignore) x,y,width,height, -->
+
+        <var name="image" type="Image"/>
+
+        <!-- ...classname,probability,properties, see mapwriter.writeTileset -->
+        
+        <var name="objs" type="list,ObjectItem"/>
 
         <var name="animation" type="list,Animation"/>
 
-        <!-- ... wangsets ignore -->
+        <var name="properties" type="map,string,Property"/>
     </bean>
     <!-- 瓦片集  -->
     <bean name="TileSet">
         <var name="firstgid" type="int"/>
-        <!-- when firstgid > 0 -->
+        <!-- when firstgid > 0 & filename no empty -->
         <var name="source" type="string"/>
 
         <var name="name" type="string"/>
@@ -85,13 +104,18 @@
         <!-- when offset -->
         <var name="tileoffset" type="TileOffset"/>
         
-        <var name="image" type="Image"/>
         <!-- when not orthogonal and tilesize!=gridsize -->
         <var name="grid" type="Grid"/>
         <!-- when trans flag -->
-        <var name="transformations" type="Transformations"/>
+        <!-- <var name="transformations" type="Transformations"/> -->
 
         <var name="properties" type="map,string,Property"/>
+        
+        <var name="image" type="Image"/>
+        <var name="tiles" type="list,Tile"/>
+
+        <!-- ... wangsets ignore -->
+
     </bean>
 
 
@@ -100,20 +124,10 @@
         <var name="x" type="int"/>
         <var name="y" type="int"/>
     </bean>
-    <bean name="ObjectItem">
-        <var name="id" type="int"/>
-        <var name="gid" type="int"/>
-        <var name="x" type="int"/>
-        <var name="y" type="int"/>
-        <var name="width" type="int"/>
-        <var name="height" type="int"/>
-        <!-- 0 polygon  1 polyline -->
-        <var name="poly" type="list,Point"/>
-    </bean>
     <bean name="LayerData">
-        <var name="encoding" type="string"/>
-        <var name="compression" type="string"/>
-        <var name="data" type="string"/>
+        <!-- <var name="encoding" type="string"/>
+        <var name="compression" type="string"/> -->
+        <var name="data" type="bytes"/>
     </bean>
     <bean name="Layer">
         <!-- tile 0/objectgroup 1/imagelayer 2/group 3 -->
@@ -121,8 +135,13 @@
 
         <var name="id" type="int"/>
         <var name="name" type="string"/>
+        <!-- <var name="classname" type="string"/> -->
+        <var name="x" type="int"/>
+        <var name="y" type="int"/>
+
         <var name="width" type="int"/>
         <var name="height" type="int"/>
+
         <var name="visible" type="int"/>
         <var name="locked" type="int"/>
         <var name="opacity" type="int"/>
@@ -130,12 +149,19 @@
 
         <var name="offsetx" type="int"/>
         <var name="offsety" type="int"/>
-
-        <!-- imagelayer & grouplayer not add yet -->
+        <!-- when imagelayer -->
+        <var name="repeatx" type="int"/>
+        <var name="repeaty" type="int"/>
+        <var name="image" type="Image"/>
 
         <var name="properties" type="map,string,Property"/>
 
+        <!-- when tilelayer -->
         <var name="data" type="LayerData"/>
+        <!-- when objectgroup -->
+        <var name="objs" type="list,ObjectItem"/>
+        <!-- when grouplayers -->
+        <!-- <var name="layers" type="list,Layer"/> -->
     </bean>
 
     <!-- 最终导出 -->

@@ -1,26 +1,4 @@
-/*
- * TBIN Tiled Plugin
- * Copyright 2017, Chase Warrington <spacechase0.and.cat@gmail.com>
- *
- * This file is part of Tiled.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
 #include "xbinplugin.h"
-
-#include "xbin/Map.hpp"
 
 #include "bright/CommonMacros.h"
 #include "bright/CfgBean.hpp"
@@ -44,480 +22,890 @@
 #include <map>
 #include <memory>
 #include <sstream>
-#include <tileset.h>
+
+#include <qbuffer.h>
+
+#include "mapwriter.h"
 
 namespace
 {
-    void xbinToTiledProperties(const xbin::Properties &props, Tiled::Object &obj)
+    // void xbinToTiledProperties(const xbin::Properties &props, Tiled::Object &obj)
+    // {
+    //     for (const auto &prop : props) {
+    //         if (prop.first[0] == '@')
+    //             continue;
+    //         switch (prop.second.type) {
+    //             case xbin::PropertyValue::String:
+    //                 obj.setProperty(QString::fromStdString(prop.first), QString::fromStdString(prop.second.dataStr));
+    //                 break;
+
+    //             case xbin::PropertyValue::Bool:
+    //                 obj.setProperty(QString::fromStdString(prop.first), prop.second.data.b);
+    //                 break;
+
+    //             case xbin::PropertyValue::Float:
+    //                 obj.setProperty(QString::fromStdString(prop.first), prop.second.data.f);
+    //                 break;
+
+    //             case xbin::PropertyValue::Integer:
+    //                 obj.setProperty(QString::fromStdString(prop.first), prop.second.data.i);
+    //                 break;
+    //         }
+    //     }
+    // }
+
+    // void tiledToXbinProperties(const Tiled::Properties &properties, xbin::Properties &tprops)
+    // {
+    //     for (auto it = properties.cbegin(), it_end = properties.cend(); it != it_end; ++it) {
+    //         xbin::PropertyValue prop;
+
+    //         switch (it.value().userType()) {
+    //         case QVariant::Bool:
+    //             prop.type = xbin::PropertyValue::Bool;
+    //             prop.data.b = it.value().toBool();
+    //             break;
+    //         case QVariant::Double:
+    //         case QMetaType::Float:
+    //             prop.type = xbin::PropertyValue::Float;
+    //             prop.data.f = it.value().toFloat();
+    //             break;
+    //         case QVariant::Int:
+    //             prop.type = xbin::PropertyValue::Integer;
+    //             prop.data.i = it.value().toInt();
+    //             break;
+    //         case QVariant::String:
+    //             prop.type = xbin::PropertyValue::String;
+    //             prop.dataStr = it.value().toString().toStdString();
+    //             break;
+    //         default:
+    //             throw std::invalid_argument(QT_TRANSLATE_NOOP("BinMapFormat", "Unsupported property type"));
+    //         }
+
+    //         tprops.insert(std::make_pair(it.key().toStdString(), prop));
+    //     }
+    // }
+}
+
+namespace xbin
+{
+
+    using namespace bright;
+    using namespace cfg;
+
+    void XBinPlugin::initialize()
     {
-        for (const auto &prop : props) {
-            if (prop.first[0] == '@')
-                continue;
-            switch (prop.second.type) {
-                case xbin::PropertyValue::String:
-                    obj.setProperty(QString::fromStdString(prop.first), QString::fromStdString(prop.second.dataStr));
-                    break;
-
-                case xbin::PropertyValue::Bool:
-                    obj.setProperty(QString::fromStdString(prop.first), prop.second.data.b);
-                    break;
-
-                case xbin::PropertyValue::Float:
-                    obj.setProperty(QString::fromStdString(prop.first), prop.second.data.f);
-                    break;
-
-                case xbin::PropertyValue::Integer:
-                    obj.setProperty(QString::fromStdString(prop.first), prop.second.data.i);
-                    break;
-            }
-        }
+        addObject(new XBinMapFormat(this));
     }
 
-    void tiledToXbinProperties(const Tiled::Properties &properties, xbin::Properties &tprops)
+    XBinMapFormat::XBinMapFormat(QObject *)
     {
-        for (auto it = properties.cbegin(), it_end = properties.cend(); it != it_end; ++it) {
-            xbin::PropertyValue prop;
-
-            switch (it.value().userType()) {
-            case QVariant::Bool:
-                prop.type = xbin::PropertyValue::Bool;
-                prop.data.b = it.value().toBool();
-                break;
-            case QVariant::Double:
-            case QMetaType::Float:
-                prop.type = xbin::PropertyValue::Float;
-                prop.data.f = it.value().toFloat();
-                break;
-            case QVariant::Int:
-                prop.type = xbin::PropertyValue::Integer;
-                prop.data.i = it.value().toInt();
-                break;
-            case QVariant::String:
-                prop.type = xbin::PropertyValue::String;
-                prop.dataStr = it.value().toString().toStdString();
-                break;
-            default:
-                throw std::invalid_argument(QT_TRANSLATE_NOOP("BinMapFormat", "Unsupported property type"));
-            }
-
-            tprops.insert(std::make_pair(it.key().toStdString(), prop));
-        }
-    }
-}
-
-namespace xbin {
-
-using namespace bright;
-using namespace cfg;
-
-void XBinPlugin::initialize()
-{
-    addObject(new XBinMapFormat(this));
-}
-
-
-XBinMapFormat::XBinMapFormat(QObject *)
-{
-}
-
-std::unique_ptr<Tiled::Map> XBinMapFormat::read(const QString &fileName)
-{
-    std::ifstream file( fileName.toStdString(), std::ios::in | std::ios::binary );
-    if (!file) {
-        mError = QCoreApplication::translate("File Errors", "Could not open file for reading.");
-        return nullptr;
     }
 
-    xbin::Map tmap;
-    std::unique_ptr<Tiled::Map> map;
-    try
+    std::unique_ptr<Tiled::Map> XBinMapFormat::read(const QString &fileName)
     {
-        tmap.loadFromStream(file);
-
-        if (tmap.layers.empty())
-            throw std::invalid_argument(QT_TR_NOOP("Map contains no layers."));
-
-        auto &firstLayer = tmap.layers[0];
-
-        map = std::make_unique<Tiled::Map>(Tiled::Map::Orthogonal,
-                                           QSize(firstLayer.layerSize.x, firstLayer.layerSize.y),
-                                           QSize(firstLayer.tileSize.x, firstLayer.tileSize.y));
-
-        xbinToTiledProperties(tmap.props, *map);
-
-        const QDir fileDir(QFileInfo(fileName).dir());
-
-        std::map< std::string, int > tmapTilesheetMapping;
-        for (std::size_t i = 0; i < tmap.tilesheets.size(); ++i) {
-            const xbin::TileSheet& ttilesheet = tmap.tilesheets[i];
-            tmapTilesheetMapping[ttilesheet.id] = static_cast<int>(i);
-
-            if (ttilesheet.spacing.x != ttilesheet.spacing.y)
-                throw std::invalid_argument(QT_TR_NOOP("Tilesheet must have equal spacings."));
-            if (ttilesheet.margin.x != ttilesheet.margin.y)
-                throw std::invalid_argument(QT_TR_NOOP("Tilesheet must have equal margins."));
-
-            auto tileset = Tiled::Tileset::create(ttilesheet.id.c_str(), ttilesheet.tileSize.x, ttilesheet.tileSize.y, ttilesheet.spacing.x, ttilesheet.margin.x);
-            tileset->setImageSource(Tiled::toUrl(QString::fromStdString(ttilesheet.image).replace("\\", "/"), fileDir));
-            tileset->loadImage();
-
-            xbinToTiledProperties(ttilesheet.props, *tileset);
-
-            for (const auto &prop : ttilesheet.props) {
-                if (prop.first[0] != '@')
-                    continue;
-
-                const QString name = QString::fromStdString(prop.first);
-                const QVector<QStringRef> strs = name.splitRef('@');
-                if (strs[1] == QLatin1String("TileIndex")) {
-                    int index = strs[2].toInt();
-                    xbin::Properties dummyProps;
-                    dummyProps.insert(std::make_pair(strs[3].toUtf8().constData(), prop.second));
-                    Tiled::Tile *tile = tileset->findOrCreateTile(index);
-                    xbinToTiledProperties(dummyProps, *tile);
-                }
-                // TODO: 'AutoTile' ?
-                // Purely for map making. Appears to be similar to terrains
-                // (In tIDE, right click a tilesheet and choose "Auto Tiles..."
-            }
-
-            map->addTileset(tileset);
+        std::ifstream file(fileName.toStdString(), std::ios::in | std::ios::binary);
+        if (!file)
+        {
+            mError = QCoreApplication::translate("File Errors", "Could not open file for reading.");
+            return nullptr;
         }
-        for (const xbin::Layer& tlayer : tmap.layers) {
-            if (tlayer.tileSize.x != firstLayer.tileSize.x || tlayer.tileSize.y != firstLayer.tileSize.y)
-                throw std::invalid_argument(QT_TR_NOOP("Different tile sizes per layer are not supported."));
 
-            auto layer = std::make_unique<Tiled::TileLayer>(QString::fromStdString(tlayer.id), 0, 0, tlayer.layerSize.x, tlayer.layerSize.y);
-            xbinToTiledProperties(tlayer.props, *layer);
-            auto objects = std::make_unique<Tiled::ObjectGroup>(QString::fromStdString(tlayer.id), 0, 0);
-            for (std::size_t i = 0; i < tlayer.tiles.size(); ++i) {
-                const xbin::Tile& ttile = tlayer.tiles[i];
-                int ix = static_cast<int>(i % static_cast<std::size_t>(tlayer.layerSize.x));
-                int iy = static_cast<int>(i / static_cast<std::size_t>(tlayer.layerSize.x));
+        std::unique_ptr<Tiled::Map> map;
 
-                if (ttile.isNullTile())
-                    continue;
-
-                Tiled::Cell cell;
-                if (ttile.animatedData.frames.size() > 0) {
-                    xbin::Tile tfirstTile = ttile.animatedData.frames[0];
-                    Tiled::Tile* firstTile = map->tilesetAt(tmapTilesheetMapping[tfirstTile.tilesheet])->findOrCreateTile(tfirstTile.staticData.tileIndex);
-                    QVector<Tiled::Frame> frames;
-                    for (const xbin::Tile& tframe : ttile.animatedData.frames) {
-                        if (tframe.isNullTile() || tframe.animatedData.frames.size() > 0 ||
-                             tframe.tilesheet != tfirstTile.tilesheet)
-                            throw std::invalid_argument(QT_TR_NOOP("Invalid animation frame."));
-
-                        Tiled::Frame frame;
-                        frame.tileId = tframe.staticData.tileIndex;
-                        frame.duration = ttile.animatedData.frameInterval;
-                        frames.append(frame);
-                    }
-                    firstTile->setFrames(frames);
-                    cell = Tiled::Cell(firstTile);
-                }
-                else {
-                    cell = Tiled::Cell(map->tilesetAt(tmapTilesheetMapping[ttile.tilesheet]).data(), ttile.staticData.tileIndex);
-                }
-                layer->setCell(ix, iy, cell);
-
-                if (ttile.props.size() > 0) {
-                    auto obj = std::make_unique<Tiled::MapObject>("TileData", QString(), QPointF(ix * tlayer.tileSize.x, iy * tlayer.tileSize.y), QSizeF(tlayer.tileSize.x, tlayer.tileSize.y));
-                    xbinToTiledProperties(ttile.props, *obj);
-                    objects->addObject(std::move(obj));
-                }
-            }
-            map->addLayer(std::move(layer));
-            map->addLayer(std::move(objects));
-        }
-    }
-    catch (std::exception& e) {
-        mError = tr((std::string("Exception: ") + e.what()).c_str());
+        return map;
     }
 
-    return map;
-}
+    static bool hasFlags(const Tiled::Cell &cell)
+    {
+        return cell.flippedHorizontally() ||
+               cell.flippedVertically() ||
+               cell.flippedAntiDiagonally() ||
+               cell.rotatedHexagonal120();
+    }
+    static bool includeTile(const Tiled::Tile *tile)
+    {
+        if (!tile->className().isEmpty())
+            return true;
+        if (!tile->properties().isEmpty())
+            return true;
+        if (!tile->imageSource().isEmpty())
+            return true;
+        if (tile->objectGroup())
+            return true;
+        if (tile->isAnimated())
+            return true;
+        if (tile->probability() != 1.0)
+            return true;
 
-static bool hasFlags(const Tiled::Cell &cell)
-{
-    return cell.flippedHorizontally() ||
-            cell.flippedVertically() ||
-            cell.flippedAntiDiagonally() ||
-            cell.rotatedHexagonal120();
-}
+        return false;
+    }
+    bool XBinMapFormat::write(const Tiled::Map *map, const QString &fileName, Options options)
+    {
+        Q_UNUSED(options)
 
-bool XBinMapFormat::write(const Tiled::Map *map, const QString &fileName, Options options)
-{
-    Q_UNUSED(options)
+        mLayerDataFormat = map->layerDataFormat();
+        mCompressionlevel = map->compressionLevel();
 
-    try {
-        bmap::BMap _map;
+        try
+        {
+            bmap::BMap _map;
 
-        //todo properties
+            _map.version = FileFormat::versionString().toStdString();
+            _map.tiledversion = QCoreApplication::applicationVersion().toStdString();
 
-        _map.version = FileFormat::versionString().toStdString();
-        _map.tiledversion = QCoreApplication::applicationVersion().toStdString();
+            _map.orientation = orientationToString(map->orientation()).toStdString();
+            _map.renderorder = renderOrderToString(map->renderOrder()).toStdString();
 
-        _map.orientation = orientationToString(map->orientation()).toStdString();
-        _map.renderorder = renderOrderToString(map->renderOrder()).toStdString();
+            _map.width = map->width();
+            _map.height = map->height();
+            _map.tilewidth = map->tileWidth();
+            _map.tileheight = map->tileHeight();
 
-        _map.width = map->width();
-        _map.height = map->height();
-        _map.tilewidth = map->tileWidth();
-        _map.tileheight = map->tileHeight();
+            _map.infinite = map->infinite();
 
-        _map.infinite = map->infinite();
-
-        if (map->orientation() == Tiled::Map::Hexagonal) {
-            _map.hexsidelength = map->hexSideLength();
-        }
-        if (map->orientation() == Tiled::Map::Staggered || map->orientation() == Tiled::Map::Hexagonal) {
-            _map.staggeraxis = staggerAxisToString(map->staggerAxis()).toStdString();
-            _map.staggerindex = staggerIndexToString(map->staggerIndex()).toStdString();
-        }
-        _map.nextlayerid = map->nextLayerId();
-        _map.nextobjectid = map->nextObjectId();
-
-        // properties
-
-        unsigned firstGid = 1;
-        for (const Tiled::SharedTileset &ts : map->tilesets()) {
-            bmap::TileSet item;
-            if (firstGid > 0) {
-                item.firstgid = firstGid;
-                const QString &fileName = ts->fileName();
-                if (!fileName.isEmpty()) {
-                    QString source = fileName;
-                    item.source = source.toStdString();
-                }
-            } else {
-
+            if (map->orientation() == Tiled::Map::Hexagonal)
+            {
+                _map.hexsidelength = map->hexSideLength();
             }
-            item.name = ts->name().toStdString();
-            item.tilewidth = ts->tileWidth();
-            item.tileheight = ts->tileHeight();
-
-            const int tileSpacing = ts->tileSpacing();
-            const int margin = ts->margin();
-            if (tileSpacing != 0 ) {
-                item.spacing = tileSpacing;
+            if (map->orientation() == Tiled::Map::Staggered || map->orientation() == Tiled::Map::Hexagonal)
+            {
+                _map.staggeraxis = staggerAxisToString(map->staggerAxis()).toStdString();
+                _map.staggerindex = staggerIndexToString(map->staggerIndex()).toStdString();
             }
-            if (margin != 0 ) {
-                item.margin = margin;
-            }
-            item.tilecount = ts->tileCount();
-            item.columns = ts->columnCount();
-
-            //...
-
-            // editor setting...
-
-            const QPoint offset = ts->tileOffset();
-            if (!offset.isNull()) {
-                item.tileoffset->x = offset.x();
-                item.tileoffset->y = offset.y();
-            }
-
-            // orthogonal & gridsize...
-
-            // transformation...
+            _map.nextlayerid = map->nextLayerId();
+            _map.nextobjectid = map->nextObjectId();
 
             // properties...
-            
-            if (ts->image().isNull() && ts->imageSource().isEmpty() ) {
 
-            } else {
-                QString fileRef = toFileReference(source, mUseAbsolutePaths ? QString()
-                                                                    : mDir.path());
-                item.image->source = 
-                item.image->trans = trans;
-                item.image->width = width;
-                item.image->height = height;
-                item.image->format = format;
-                item.image->data = data;
-            }
-        }
+            // const QDir fileDir(QFileInfo(fileName).dir());
+            mDir = QFileInfo(fileName).dir();
 
-
-
-        xbin::Map tmap;
-        //tmap.id = map->name();
-        tiledToXbinProperties(map->properties(), tmap.props);
-
-        const QDir fileDir(QFileInfo(fileName).dir());
-
-        for (const Tiled::SharedTileset& tilesheet : map->tilesets()) {
-            xbin::TileSheet ttilesheet;
-            ttilesheet.id = tilesheet->name().toStdString();
-            ttilesheet.image = Tiled::toFileReference(tilesheet->imageSource(), fileDir).replace("/", "\\").toStdString();
-            ttilesheet.margin.x = ttilesheet.margin.y = tilesheet->margin();
-            ttilesheet.spacing.x = ttilesheet.spacing.y = tilesheet->tileSpacing();
-            ttilesheet.sheetSize.x = tilesheet->columnCount();
-            ttilesheet.sheetSize.y = tilesheet->rowCount();
-            ttilesheet.tileSize.x = tilesheet->tileSize().width();
-            ttilesheet.tileSize.y = tilesheet->tileSize().height();
-            tiledToXbinProperties(tilesheet->properties(), ttilesheet.props);
-
-            Tiled::Properties tilesetTileProperties;
-            for (auto tile : tilesheet->tiles()) {
-                const auto &props = tile->properties();
-                for (auto it = props.begin(), it_end = props.end(); it != it_end; ++it) {
-                    tilesetTileProperties.insert("@TileIndex@" + QString::number(tile->id()) + "@" + it.key(), it.value());
-                }
-            }
-            tiledToXbinProperties(tilesetTileProperties, ttilesheet.props);
-
-            tmap.tilesheets.push_back(std::move(ttilesheet));
-        }
-
-        std::vector< Tiled::ObjectGroup* > objGroups;
-        std::map< std::string, xbin::Layer* > tileLayerIdMap;
-        tmap.layers.reserve(static_cast<std::size_t>(map->layers().size()));
-        for (Tiled::Layer* rawLayer : map->layers()) {
-            if (Tiled::ObjectGroup* layer = rawLayer->asObjectGroup()) {
-                objGroups.push_back(layer);
-            }
-            else if (Tiled::TileLayer* layer = rawLayer->asTileLayer()) {
-                xbin::Layer tlayer;
-                tlayer.id = layer->name().toStdString();
-                tlayer.layerSize.x = layer->width();
-                tlayer.layerSize.y = layer->height();
-                tlayer.tileSize.x = map->tileWidth();
-                tlayer.tileSize.y = map->tileHeight();
-                //tlayer.visible = ???;
-                for (int iy = 0; iy < tlayer.layerSize.y; ++iy) {
-                    for (int ix = 0; ix < tlayer.layerSize.x; ++ix) {
-                        Tiled::Cell cell = layer->cellAt(ix, iy);
-                        xbin::Tile ttile;
-                        ttile.staticData.tileIndex = -1;
-
-                        if (hasFlags(cell)) {
-                            Tiled::ERROR("tBIN: Flipped and/or rotated tiles are not supported.",
-                                         Tiled::JumpToTile { map, QPoint(ix + layer->x(), iy + layer->y()), layer });
-                        }
-
-                        if (Tiled::Tile *tile = cell.tile()) {
-                            ttile.tilesheet = tile->tileset()->name().toStdString();
-                            if (tile->frames().size() == 0) {
-                                ttile.staticData.tileIndex = tile->id();
-                                ttile.staticData.blendMode = 0;
-                            }
-                            else {
-                                ttile.animatedData.frameInterval = tile->frames().at(0).duration;
-
-                                for (Tiled::Frame frame : tile->frames()) {
-                                    if (frame.duration != ttile.animatedData.frameInterval) {
-                                        Tiled::ERROR("tBIN: Frames with different duration are not supported.",
-                                                     Tiled::SelectTile { tile });
-                                    }
-
-                                    xbin::Tile tframe;
-                                    tframe.tilesheet = ttile.tilesheet;
-                                    tframe.staticData.tileIndex = frame.tileId;
-                                    tframe.staticData.blendMode = 0;
-                                    ttile.animatedData.frames.push_back(tframe);
-                                }
-                            }
-                        }
-                        tlayer.tiles.push_back(ttile);
+            // 1.tileset
+            mGidMapper.clear();
+            unsigned firstGid = 1;
+            for (const Tiled::SharedTileset &ts : map->tilesets())
+            {
+                std::shared_ptr<bmap::TileSet> item(new bmap::TileSet());
+                if (firstGid > 0)
+                {
+                    item->firstgid = firstGid;
+                    const QString &fileName = ts->fileName();
+                    if (!fileName.isEmpty())
+                    {
+                        QString source = fileName;
+                        item->source = source.toStdString();
+                        _map.tileset.push_back(item);
+                        mGidMapper.insert(firstGid, ts);
+                        firstGid += ts->nextTileId();
+                        continue;
                     }
                 }
-                tiledToXbinProperties(layer->properties(), tlayer.props);
-                tmap.layers.push_back(std::move(tlayer));
-                tileLayerIdMap[tmap.layers.back().id] = &tmap.layers.back();
+                else
+                {
+                    // version & tiledversion
+                }
+                item->name = ts->name().toStdString();
+                item->tilewidth = ts->tileWidth();
+                item->tileheight = ts->tileHeight();
+
+                const int tileSpacing = ts->tileSpacing();
+                const int margin = ts->margin();
+                if (tileSpacing != 0)
+                {
+                    item->spacing = tileSpacing;
+                }
+                if (margin != 0)
+                {
+                    item->margin = margin;
+                }
+                item->tilecount = ts->tileCount();
+                item->columns = ts->columnCount();
+
+                //...
+
+                // editor setting...
+
+                const QPoint offset = ts->tileOffset();
+                if (!offset.isNull())
+                {
+                    item->tileoffset->x = offset.x();
+                    item->tileoffset->y = offset.y();
+                }
+
+                // orthogonal & gridsize...
+                if (ts->orientation() != Tiled::Tileset::Orthogonal || ts->gridSize() != ts->tileSize())
+                {
+                    item->grid->orientation = Tiled::Tileset::orientationToString(ts->orientation()).toStdString();
+                    item->grid->width = ts->gridSize().width();
+                    item->grid->height = ts->gridSize().height();
+                }
+
+                // transformation...
+
+                // properties...
+
+                // image
+                writeImage(ts, item, ts->imageSource(), ts->image(), ts->transparentColor(), QSize(ts->imageWidth(), ts->imageHeight()));
+
+                // all tiles
+                const bool isCollection = ts->isCollection();
+                const bool includeAllTiles = isCollection || ts->anyTileOutOfOrder();
+                for (const Tiled::Tile *tile : ts->tiles())
+                {
+                    if (includeAllTiles || includeTile(tile))
+                    {
+                        bmap::Tile bt;
+                        bt.id = tile->id();
+                        // ...
+                        if (isCollection)
+                        {
+                            writeImage(ts, item, ts->imageSource(), ts->image(), QColor(), tile->size());
+                        }
+                        if (tile->objectGroup())
+                            writeObjectGroupForTile(bt, *(tile->objectGroup()));
+
+                        if (tile->isAnimated())
+                        {
+                            const QVector<Tiled::Frame> &frames = tile->frames();
+                            for (const Tiled::Frame &frame : frames)
+                            {
+                                std::shared_ptr<bmap::Animation> ani(new bmap::Animation());
+                                ani->tileid = frame.tileId;
+                                ani->duration = frame.duration;
+                                bt.animation.push_back(ani);
+                            }
+                        }
+                    }
+                }
+
+                _map.tileset.push_back(item);
+                mGidMapper.insert(firstGid, ts);
+                firstGid += ts->nextTileId();
             }
-            else {
-                throw std::invalid_argument(QT_TR_NOOP("Only object and tile layers supported."));
+
+            // 2. tilelayer
+            // 3. object group layer
+            // 4. imagelayer
+            // 5. group layer
+            for (const Tiled::Layer *layer : map->layers())
+            {
+                std::shared_ptr<bmap::Layer> bl(new bmap::Layer());
+                switch (layer->layerType())
+                {
+                case Tiled::Layer::TileLayerType:
+                    writeTileLayer(bl, *static_cast<const Tiled::TileLayer *>(layer));
+                    break;
+                case Tiled::Layer::ObjectGroupType:
+                    writeObjectGroup(bl, *static_cast<const Tiled::ObjectGroup *>(layer));
+                    break;
+                case Tiled::Layer::ImageLayerType:
+                    // writeImageLayer(w, *static_cast<const Tiled::ImageLayer*>(layer));
+                    break;
+                case Tiled::Layer::GroupLayerType:
+                    // writeGroupLayer(w, *static_cast<const Tiled::GroupLayer*>(layer));
+                    break;
+                default:
+                    break;
+                }
             }
+
+            std::ofstream file(fileName.toStdString(), std::ios::trunc | std::ios::binary);
+            if (!file)
+            {
+                mError = tr("Could not open file for writing");
+                return false;
+            }
+            // tmap.saveToStream(file);
+            // using bytebuf serialize 每次导表改变以下字段需要对应修改。。。
+            ByteBuf bb(16 * 1024);
+            bb.writeString(_map.version);
+            bb.writeString(_map.tiledversion);
+            bb.writeString(_map.orientation);
+            bb.writeString(_map.renderorder);
+            bb.writeInt(_map.width);
+            bb.writeInt(_map.height);
+            bb.writeInt(_map.tilewidth);
+            bb.writeInt(_map.tileheight);
+            bb.writeInt(_map.infinite);
+            bb.writeInt(_map.hexsidelength);
+            bb.writeString(_map.staggeraxis);
+            bb.writeString(_map.staggerindex);
+            bb.writeInt(_map.nextlayerid);
+            bb.writeInt(_map.nextobjectid);
+            // properties
+
+            // ::bright::Vector<::bright::SharedPtr<bmap::TileSet>> tileset;
+            bb.writeInt(_map.tileset.size());
+            for (const bright::SharedPtr<bmap::TileSet> &ts : _map.tileset)
+            {
+                /**
+                 *      ::bright::int32 firstgid;
+                        ::bright::String source;
+                        ::bright::String name;
+                        ::bright::int32 tilewidth;
+                        ::bright::int32 tileheight;
+                        ::bright::int32 spacing;
+                        ::bright::int32 margin;
+                        ::bright::int32 tilecount;
+                        ::bright::int32 columns;
+                        ::bright::String backgroundcolor;
+                        ::bright::String objectalignment;
+                        ::bright::String tilerendersize;
+                        ::bright::String fillmode;
+                        ::bright::SharedPtr<bmap::TileOffset> tileoffset;
+                        ::bright::SharedPtr<bmap::Grid> grid;
+                        ::bright::HashMap<::bright::String, ::bright::SharedPtr<bmap::Property>> properties;
+                        ::bright::SharedPtr<bmap::Image> image;
+                        ::bright::Vector<::bright::SharedPtr<bmap::Tile>> tiles;
+                */
+                bb.writeInt(ts->firstgid);
+                bb.writeString(ts->source);
+                bb.writeString(ts->name);
+                bb.writeInt(ts->tilewidth);
+                bb.writeInt(ts->tileheight);
+                bb.writeInt(ts->spacing);
+                bb.writeInt(ts->margin);
+                bb.writeInt(ts->tilecount);
+                bb.writeInt(ts->columns);
+                bb.writeString(ts->backgroundcolor);
+                bb.writeString(ts->objectalignment);
+                bb.writeString(ts->tilerendersize);
+                bb.writeString(ts->fillmode);
+                // tileoffset
+                bb.writeInt(ts->tileoffset->x);
+                bb.writeInt(ts->tileoffset->y);
+                // grid
+                bb.writeString(ts->grid->orientation);
+                bb.writeInt(ts->grid->width);
+                bb.writeInt(ts->grid->height);
+                // properties
+
+                // image
+                bb.writeString(ts->image->source);
+                bb.writeInt(ts->image->width);
+                bb.writeInt(ts->image->height);
+                bb.writeBytes(&ts->image->data->data);
+
+                // tiles
+                bb.writeInt(ts->tiles.size());
+                for (const bright::SharedPtr<bmap::Tile> tile : ts->tiles)
+                {
+                    /**
+                     *  ::bright::int32 id;
+                        ::bright::SharedPtr<bmap::Image> image;
+                        ::bright::Vector<::bright::SharedPtr<bmap::ObjectItem>> objs;
+                        ::bright::Vector<::bright::SharedPtr<bmap::Animation>> animation;
+                        ::bright::HashMap<::bright::String, ::bright::SharedPtr<bmap::Property>> properties;
+                    */
+                    bb.writeInt(tile->id);
+
+                    // image
+                    bb.writeString(tile->image->source);
+                    bb.writeInt(tile->image->width);
+                    bb.writeInt(tile->image->height);
+                    bb.writeBytes(&tile->image->data->data);
+
+                    // objs
+                    bb.writeInt(tile->objs.size());
+                    for (const bright::SharedPtr<bmap::ObjectItem> obj : tile->objs)
+                    {
+                        /**
+                         *      ::bright::int32 id;
+                                ::bright::int32 gid;
+                                ::bright::int32 x;
+                                ::bright::int32 y;
+                                ::bright::int32 width;
+                                ::bright::int32 height;
+                                ::bright::Vector<::bright::SharedPtr<bmap::Point>> polygon;
+                                ::bright::Vector<::bright::SharedPtr<bmap::Point>> polyline;
+                        */
+                        bb.writeInt(obj->id);
+                        bb.writeInt(obj->gid);
+                        bb.writeInt(obj->x);
+                        bb.writeInt(obj->y);
+                        bb.writeInt(obj->width);
+                        bb.writeInt(obj->height);
+
+                        bb.writeInt(obj->polygon.size());
+                        for (const bright::SharedPtr<bmap::Point> p : obj->polygon)
+                        {
+                            bb.writeInt(p->x);
+                            bb.writeInt(p->y);
+                        }
+                        bb.writeInt(obj->polyline.size());
+                        for (const bright::SharedPtr<bmap::Point> p : obj->polyline)
+                        {
+                            bb.writeInt(p->x);
+                            bb.writeInt(p->y);
+                        }
+                    }
+
+                    // animation
+                    bb.writeInt(tile->animation.size());
+                    for (const bright::SharedPtr<bmap::Animation> ani : tile->animation)
+                    {
+                        bb.writeInt(ani->tileid);
+                        bb.writeInt(ani->duration);
+                    }
+
+                    // properties
+                }
+            }
+
+            // ::bright::Vector<::bright::SharedPtr<bmap::Layer>> layer;
+            bb.writeInt(_map.layer.size());
+            for (const bright::SharedPtr<bmap::Layer> layer : _map.layer)
+            {
+                /*
+                    ::bright::int32 type;
+                    ::bright::int32 id;
+                    ::bright::String name;
+                    ::bright::int32 x;
+                    ::bright::int32 y;
+                    ::bright::int32 width;
+                    ::bright::int32 height;
+                    ::bright::int32 visible;
+                    ::bright::int32 locked;
+                    ::bright::int32 opacity;
+                    ::bright::String tintcolor;
+                    ::bright::int32 offsetx;
+                    ::bright::int32 offsety;
+                    ::bright::int32 repeatx;
+                    ::bright::int32 repeaty;
+                    ::bright::SharedPtr<bmap::Image> image;
+                    ::bright::HashMap<::bright::String, ::bright::SharedPtr<bmap::Property>> properties;
+                    ::bright::SharedPtr<bmap::LayerData> data;
+                    ::bright::Vector<::bright::SharedPtr<bmap::ObjectItem>> objs;
+                    ::bright::Vector<::bright::SharedPtr<bmap::Layer>> layers;
+                */
+                bb.writeInt(layer->type);
+                bb.writeInt(layer->id);
+                bb.writeString(layer->name);
+                bb.writeInt(layer->x);
+                bb.writeInt(layer->y);
+                bb.writeInt(layer->width);
+                bb.writeInt(layer->height);
+                bb.writeInt(layer->visible);
+                bb.writeInt(layer->locked);
+                bb.writeInt(layer->opacity);
+                bb.writeString(layer->tintcolor);
+                bb.writeInt(layer->offsetx);
+                bb.writeInt(layer->offsety);
+                bb.writeInt(layer->repeatx);
+                bb.writeInt(layer->repeaty);
+                // image
+                bb.writeString(layer->image->source);
+                bb.writeInt(layer->image->width);
+                bb.writeInt(layer->image->height);
+                bb.writeBytes(&layer->image->data->data);
+                // properties
+
+                // layerdata
+                bb.writeBytes(&layer->data->data);
+
+                // objs
+                bb.writeInt(layer->objs.size());
+                for (const bright::SharedPtr<bmap::ObjectItem> obj : layer->objs)
+                {
+                    /**
+                     *      ::bright::int32 id;
+                            ::bright::int32 gid;
+                            ::bright::int32 x;
+                            ::bright::int32 y;
+                            ::bright::int32 width;
+                            ::bright::int32 height;
+                            ::bright::Vector<::bright::SharedPtr<bmap::Point>> polygon;
+                            ::bright::Vector<::bright::SharedPtr<bmap::Point>> polyline;
+                    */
+                    bb.writeInt(obj->id);
+                    bb.writeInt(obj->gid);
+                    bb.writeInt(obj->x);
+                    bb.writeInt(obj->y);
+                    bb.writeInt(obj->width);
+                    bb.writeInt(obj->height);
+
+                    bb.writeInt(obj->polygon.size());
+                    for (const bright::SharedPtr<bmap::Point> p : obj->polygon)
+                    {
+                        bb.writeInt(p->x);
+                        bb.writeInt(p->y);
+                    }
+                    bb.writeInt(obj->polyline.size());
+                    for (const bright::SharedPtr<bmap::Point> p : obj->polyline)
+                    {
+                        bb.writeInt(p->x);
+                        bb.writeInt(p->y);
+                    }
+                }
+
+                // layer (only for group layers)
+                // bb.writeInt(layer->layers.size());
+                // for (const bright::SharedPtr<bmap::Layer> l : layer->layers) {
+
+                // }
+            }
+
+            file.close();
         }
-
-        for (Tiled::ObjectGroup* objs : objGroups) {
-            const auto groupName = objs->name();
-
-            xbin::Layer* tiles = tileLayerIdMap[groupName.toStdString()];
-            if (!tiles) {
-                Tiled::WARNING(QStringLiteral("tBIN: Ignoring object layer \"%1\" without matching tile layer.").arg(groupName),
-                               Tiled::SelectLayer { objs });
-                continue;
-            }
-
-            for (Tiled::MapObject* obj : objs->objects()) {
-                if (obj->name() != QLatin1String("TileData")) {
-                    Tiled::WARNING(QStringLiteral("tBIN: Ignoring object %1 with name different from 'TileData'.").arg(obj->id()),
-                                   Tiled::JumpToObject { obj });
-                    continue;
-                }
-
-                if (obj->properties().isEmpty()) {
-                    Tiled::WARNING(QStringLiteral("tBIN: Ignoring object %1 without custom properties.").arg(obj->id()),
-                                   Tiled::JumpToObject { obj });
-                    continue;
-                }
-
-                if (static_cast<int>(obj->width()) != tiles->tileSize.x ||
-                        static_cast<int>(obj->height()) != tiles->tileSize.y ||
-                        obj->x() / tiles->tileSize.x != std::floor(obj->x() / tiles->tileSize.x) ||
-                        obj->y() / tiles->tileSize.y != std::floor(obj->y() / tiles->tileSize.y)) {
-                    Tiled::WARNING(QStringLiteral("tBIN: Object %1 is not aligned to the tile grid.").arg(obj->id()),
-                                   Tiled::JumpToObject { obj });
-                }
-
-                // Determine tile position based on the center of the object
-                int tileX = static_cast<int>(std::floor((obj->x() + (obj->width() / 2)) / tiles->tileSize.x));
-                int tileY = static_cast<int>(std::floor((obj->y() + (obj->height() / 2)) / tiles->tileSize.y));
-
-                // Make sure the object is within the map boundaries (also makes sure values are positive)
-                tileX = qBound(0, tileX, tiles->layerSize.x - 1);
-                tileY = qBound(0, tileY, tiles->layerSize.y - 1);
-
-                std::size_t idx = static_cast<std::size_t>(tileX + tileY * tiles->layerSize.x);
-                tiledToXbinProperties(obj->properties(), tiles->tiles[idx].props);
-            }
-        }
-
-        std::ofstream file(fileName.toStdString(), std::ios::trunc | std::ios::binary);
-        if (!file) {
-            mError = tr("Could not open file for writing");
+        catch (std::exception &e)
+        {
+            mError = tr("Exception: %1").arg(tr(e.what()));
             return false;
         }
-        tmap.saveToStream(file);
-        file.close();
+
+        return true;
     }
-    catch (std::exception& e)
+
+    void XBinMapFormat::writeImage(const Tiled::SharedTileset &ts,
+                                   std::shared_ptr<bmap::TileSet> &item,
+                                   const QUrl &source,
+                                   const QPixmap &image,
+                                   const QColor &transColor,
+                                   const QSize size)
     {
-        mError = tr("Exception: %1").arg(tr(e.what()));
-        return false;
+        if (ts->image().isNull() && ts->imageSource().isEmpty())
+        {
+            // no need
+            return;
+        }
+        else
+        {
+            // QString fileRef = toFileReference(source, mUseAbsolutePaths ? QString()
+            //                                                     : mDir.path());
+            item->image->source = Tiled::toFileReference(ts->imageSource(), mDir).replace("/", "\\").toStdString();
+
+            // if (ts->transparentColor().isValid()) item->image->trans = trans;
+            item->image->width = ts->tileWidth();
+            item->image->height = ts->tileHeight();
+            if (ts->imageSource().isEmpty())
+            {
+                // item->image->data->encoding = "base64";
+
+                QBuffer buffer;
+                ts->image().save(&buffer, "png");
+                // 这个数据结构改二进制
+                item->image->data->data.reserve(buffer.data().size());
+                std::memcpy(item->image->data->data.data(), buffer.data().constData(), buffer.data().size());
+            }
+        }
+    }
+    void XBinMapFormat::writeTileLayer(std::shared_ptr<bmap::Layer> &bl, const Tiled::TileLayer &tileLayer)
+    {
+        writeLayerAttributes(bl, tileLayer);
+
+        // properties...
+
+        // need to adjust infinite...
+        writeTileLayerData(bl, tileLayer, QRect(0, 0, tileLayer.width(), tileLayer.height()));
+    }
+    void XBinMapFormat::writeLayerAttributes(std::shared_ptr<bmap::Layer> &bl, const Tiled::Layer &layer)
+    {
+        if (layer.id() != 0)
+            bl->id = layer.id();
+        if (!layer.name().isEmpty())
+            bl->name = layer.name().toStdString();
+        const int x = layer.x();
+        const int y = layer.y();
+        const qreal opacity = layer.opacity();
+        if (x != 0)
+            bl->x = x;
+        if (y != 0)
+            bl->y = y;
+        if (layer.layerType() == Tiled::Layer::TileLayerType)
+        {
+            auto &tileLayer = static_cast<const Tiled::TileLayer &>(layer);
+            int width = tileLayer.width();
+            int height = tileLayer.height();
+
+            bl->width = width;
+            bl->height = height;
+        }
+
+        if (!layer.isVisible())
+            bl->visible = 0;
+        if (layer.isLocked())
+            bl->locked = 1;
+        if (opacity != qreal(1))
+            bl->opacity = opacity;
+        if (layer.tintColor().isValid())
+        {
+            bl->tintcolor = Tiled::colorToString(layer.tintColor()).toStdString();
+        }
+
+        const QPointF offset = layer.offset();
+        if (!offset.isNull())
+        {
+            bl->offsetx = offset.x();
+            bl->offsety = offset.y();
+        }
+
+        // const QPointF parallaxFactor = layer.parallaxFactor();
+        // if (parallaxFactor.x() != 1.0)
+        //     w.writeAttribute(QStringLiteral("parallaxx"), QString::number(parallaxFactor.x()));
+        // if (parallaxFactor.y() != 1.0)
+        //     w.writeAttribute(QStringLiteral("parallaxy"), QString::number(parallaxFactor.y()));
+    }
+    void XBinMapFormat::writeTileLayerData(std::shared_ptr<bmap::Layer> &bl, const Tiled::TileLayer &tileLayer, QRect bounds)
+    {
+        // if (mLayerDataFormat == Map::XML) {
+        //     for (int y = bounds.top(); y <= bounds.bottom(); y++) {
+        //         for (int x = bounds.left(); x <= bounds.right(); x++) {
+        //             const unsigned gid = mGidMapper.cellToGid(tileLayer.cellAt(x, y));
+        //             w.writeStartElement(QStringLiteral("tile"));
+        //             if (gid != 0)
+        //                 w.writeAttribute(QStringLiteral("gid"), QString::number(gid));
+        //             w.writeEndElement();
+        //         }
+        //     }
+        // } else
+        // if (mLayerDataFormat == Map::CSV) {
+        //     QString chunkData;
+
+        //     if (!mMinimize)
+        //         chunkData.append(QLatin1Char('\n'));
+
+        //     for (int y = bounds.top(); y <= bounds.bottom(); y++) {
+        //         for (int x = bounds.left(); x <= bounds.right(); x++) {
+        //             const unsigned gid = mGidMapper.cellToGid(tileLayer.cellAt(x, y));
+        //             chunkData.append(QString::number(gid));
+        //             if (x != bounds.right() || y != bounds.bottom())
+        //                 chunkData.append(QLatin1Char(','));
+        //         }
+        //         if (!mMinimize)
+        //             chunkData.append(QLatin1Char('\n'));
+        //     }
+
+        //     w.writeCharacters(chunkData);
+        // } else
+        {
+            if (bounds.isEmpty())
+                bounds = QRect(0, 0, tileLayer.width(), tileLayer.height());
+
+            // QByteArray tileData;
+            // tileData.reserve(bounds.width() * bounds.height() * 4);
+
+            bl->data->data.clear();
+            for (int y = bounds.top(); y <= bounds.bottom(); ++y)
+            {
+                for (int x = bounds.left(); x <= bounds.right(); ++x)
+                {
+                    const unsigned gid = mGidMapper.cellToGid(tileLayer.cellAt(x, y));
+                    // tileData.append(static_cast<char>(gid));
+                    // tileData.append(static_cast<char>(gid >> 8));
+                    // tileData.append(static_cast<char>(gid >> 16));
+                    // tileData.append(static_cast<char>(gid >> 24));
+                    bl->data->data.insert(bl->data->data.end(), static_cast<char>(gid));
+                    bl->data->data.insert(bl->data->data.end(), static_cast<char>(gid >> 8));
+                    bl->data->data.insert(bl->data->data.end(), static_cast<char>(gid >> 16));
+                    bl->data->data.insert(bl->data->data.end(), static_cast<char>(gid >> 24));
+                }
+            }
+        }
+    }
+    void XBinMapFormat::writeObjectGroupForTile(bmap::Tile &bt, const Tiled::ObjectGroup &objectGroup)
+    {
+        // if (objectGroup.id() != 0)
+        //     bt->id = objectGroup.id();
+        // if (!objectGroup.name().isEmpty())
+        //     bt->name = objectGroup.name().toStdString();
+        // const int x = objectGroup.x();
+        // const int y = objectGroup.y();
+        // const qreal opacity = objectGroup.opacity();
+        // if (x != 0)
+        //     bt->x = x;
+        // if (y != 0)
+        //     bt->y = y;
+        // if (objectGroup.layerType() == Tiled::Layer::TileLayerType) {
+        //     auto &tileLayer = static_cast<const Tiled::TileLayer&>(objectGroup);
+        //     int width = tileLayer.width();
+        //     int height = tileLayer.height();
+
+        //     bt->width = width;
+        //     bt->height = height;
+        // }
+
+        // if (!objectGroup.isVisible())
+        //     bt->visible = 0;
+        // if (objectGroup.isLocked())
+        //     bt->locked = 1;
+        // if (opacity != qreal(1))
+        //     bt->opacity = opacity;
+        // if (objectGroup.tintColor().isValid()) {
+        //     bt->tintcolor = Tiled::colorToString(objectGroup.tintColor()).toStdString();
+        // }
+
+        // const QPointF offset = objectGroup.offset();
+        // if (!offset.isNull()) {
+        //     bt->offsetx = offset.x();
+        //     bt->offsety = offset.y();
+        // }
+    }
+    void XBinMapFormat::writeObjectGroup(std::shared_ptr<bmap::Layer> &bl, const Tiled::ObjectGroup &objectGroup)
+    {
+
+        // if (objectGroup.color().isValid())
+        //     w.writeAttribute(QStringLiteral("color"), colorToString(objectGroup.color()));
+
+        // if (objectGroup.drawOrder() != Tiled::ObjectGroup::TopDownOrder) {
+        //     w.writeAttribute(QStringLiteral("draworder"), drawOrderToString(objectGroup.drawOrder()));
+        // }
+
+        writeLayerAttributes(bl, objectGroup);
+
+        // writeProperties(w, objectGroup.properties());
+
+        int idx = 0;
+        bl->objs.reserve(objectGroup.objects().size());
+        for (const Tiled::MapObject *mapObject : objectGroup.objects())
+        {
+            writeObject(bl->objs[idx], *mapObject);
+            idx++;
+        }
     }
 
-    return true;
-}
+    static bool shouldWrite(bool holdsInfo, bool isTemplateInstance, bool changed)
+    {
+        return isTemplateInstance ? changed : holdsInfo;
+    }
 
-QString XBinMapFormat::nameFilter() const
-{
-    return tr("Tbin map files (*.bin)");
-}
+    void XBinMapFormat::writeObject(bright::SharedPtr<cfg::bmap::ObjectItem> oitem, const Tiled::MapObject &mapObject)
+    {
+        const int id = mapObject.id();
+        const QString &name = mapObject.name();
+        const QString &className = mapObject.className();
+        const QPointF pos = mapObject.position();
 
-QString XBinMapFormat::shortName() const
-{
-    return QStringLiteral("xbin");
-}
+        bool isTemplateInstance = mapObject.isTemplateInstance();
 
-bool XBinMapFormat::supportsFile(const QString &fileName) const
-{
-    std::ifstream file(fileName.toStdString(), std::ios::in | std::ios::binary);
-    if (!file)
-        return false;
+        if (!mapObject.isTemplateBase())
+            oitem->id = id;
 
-    // std::string magic(6, '\0');
-    // file.read(&magic[0], static_cast<std::streamsize>(magic.length()));
+        if (const Tiled::ObjectTemplate *objectTemplate = mapObject.objectTemplate())
+        {
+            // QString fileName = objectTemplate->fileName();
+            // if (!mUseAbsolutePaths)
+            //     fileName = filePathRelativeTo(mDir, fileName);
+            // w.writeAttribute(QStringLiteral("template"), fileName);
+        }
 
-    // return magic == "tBIN10";
-    return true;
-}
+        // if (shouldWrite(!name.isEmpty(), isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::NameProperty)))
+        //     w.writeAttribute(QStringLiteral("name"), name);
 
-QString XBinMapFormat::errorString() const
-{
-    return mError;
-}
+        // if (!className.isEmpty())
+        //     w.writeAttribute(FileFormat::classPropertyNameForObject(), className);
+
+        if (shouldWrite(!mapObject.cell().isEmpty(), isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::CellProperty)))
+        {
+            const unsigned gid = mGidMapper.cellToGid(mapObject.cell());
+            oitem->gid = gid;
+        }
+
+        if (!mapObject.isTemplateBase())
+        {
+            oitem->x = pos.x();
+            oitem->y = pos.y();
+        }
+
+        if (shouldWrite(true, isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::SizeProperty)))
+        {
+            const QSizeF size = mapObject.size();
+            if (size.width() != 0)
+                oitem->width = size.width();
+            if (size.height() != 0)
+                oitem->height = size.height();
+        }
+
+        // const qreal rotation = mapObject.rotation();
+        // if (shouldWrite(rotation != 0.0, isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::RotationProperty)))
+        //     w.writeAttribute(QStringLiteral("rotation"), QString::number(rotation));
+
+        // if (shouldWrite(!mapObject.isVisible(), isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::VisibleProperty)))
+        //     w.writeAttribute(QStringLiteral("visible"), QLatin1String(mapObject.isVisible() ? "1" : "0"));
+
+        // writeProperties(w, mapObject.properties());
+
+        switch (mapObject.shape())
+        {
+        case Tiled::MapObject::Rectangle:
+            break;
+        case Tiled::MapObject::Polygon:
+        case Tiled::MapObject::Polyline:
+        {
+            if (shouldWrite(true, isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::ShapeProperty)))
+            {
+
+                if (mapObject.shape() == Tiled::MapObject::Polygon)
+                {
+                    oitem->polygon.clear();
+                    for (const QPointF &point : mapObject.polygon())
+                    {
+                        bright::SharedPtr<bmap::Point> p(new bmap::Point());
+                        p->x = point.x();
+                        p->y = point.y();
+                        oitem->polygon.insert(oitem->polygon.end(), p);
+                    }
+                }
+                else
+                {
+                    oitem->polyline.clear();
+                    for (const QPointF &point : mapObject.polygon())
+                    {
+                        bright::SharedPtr<bmap::Point> p(new bmap::Point());
+                        p->x = point.x();
+                        p->y = point.y();
+                        oitem->polyline.insert(oitem->polygon.end(), p);
+                    }
+                }
+            }
+            break;
+        }
+        case Tiled::MapObject::Ellipse:
+            // if (shouldWrite(true, isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::ShapeProperty)))
+            //     w.writeEmptyElement(QLatin1String("ellipse"));
+            break;
+        case Tiled::MapObject::Text:
+        {
+            if (shouldWrite(true, isTemplateInstance,
+                            mapObject.propertyChanged(Tiled::MapObject::TextProperty) ||
+                                mapObject.propertyChanged(Tiled::MapObject::TextFontProperty) ||
+                                mapObject.propertyChanged(Tiled::MapObject::TextAlignmentProperty) ||
+                                mapObject.propertyChanged(Tiled::MapObject::TextWordWrapProperty) ||
+                                mapObject.propertyChanged(Tiled::MapObject::TextColorProperty)))
+                // writeObjectText(w, mapObject.textData());
+                break;
+        }
+        case Tiled::MapObject::Point:
+            // if (shouldWrite(true, isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::ShapeProperty)))
+            //     w.writeEmptyElement(QLatin1String("point"));
+            break;
+        }
+    }
+    QString XBinMapFormat::nameFilter() const
+    {
+        return tr("Tbin map files (*.bin)");
+    }
+
+    QString XBinMapFormat::shortName() const
+    {
+        return QStringLiteral("xbin");
+    }
+
+    bool XBinMapFormat::supportsFile(const QString &fileName) const
+    {
+        std::ifstream file(fileName.toStdString(), std::ios::in | std::ios::binary);
+        if (!file)
+            return false;
+
+        // std::string magic(6, '\0');
+        // file.read(&magic[0], static_cast<std::streamsize>(magic.length()));
+
+        // return magic == "tBIN10";
+        return true;
+    }
+
+    QString XBinMapFormat::errorString() const
+    {
+        return mError;
+    }
 
 } // namespace Tbin
