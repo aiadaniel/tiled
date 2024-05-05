@@ -1,7 +1,6 @@
 #include "xbinplugin.h"
 
 #include "bright/CommonMacros.h"
-#include "bright/CfgBean.hpp"
 #include "luban/Gen/gen_types.h"
 
 #include "logginginterface.h"
@@ -186,16 +185,25 @@ namespace xbin
             for (const Tiled::SharedTileset &ts : map->tilesets())
             {
                 std::shared_ptr<bmap::TileSet> item(new bmap::TileSet());
+
+                // 共享指针数据都需要创建保证写时不崩溃
+                item->tileoffset = std::make_shared<bmap::TileOffset>();
+                item->grid = std::make_shared<bmap::Grid>();
+                item->image = std::make_shared<bmap::Image>();
+
                 if (firstGid > 0)
                 {
                     item->firstgid = firstGid;
                     const QString &fileName = ts->fileName();
                     if (!fileName.isEmpty())
                     {
-                        QString source = fileName;
+                        QString source = fileName;//todo 相对路径
                         item->source = source.toStdString();
+
                         _map.tileset.push_back(item);
+
                         mGidMapper.insert(firstGid, ts);
+
                         firstGid += ts->nextTileId();
                         continue;
                     }
@@ -226,15 +234,19 @@ namespace xbin
                 // editor setting...
 
                 const QPoint offset = ts->tileOffset();
+
                 if (!offset.isNull())
                 {
+
                     item->tileoffset->x = offset.x();
                     item->tileoffset->y = offset.y();
                 }
 
                 // orthogonal & gridsize...
+
                 if (ts->orientation() != Tiled::Tileset::Orthogonal || ts->gridSize() != ts->tileSize())
                 {
+
                     item->grid->orientation = Tiled::Tileset::orientationToString(ts->orientation()).toStdString();
                     item->grid->width = ts->gridSize().width();
                     item->grid->height = ts->gridSize().height();
@@ -254,15 +266,15 @@ namespace xbin
                 {
                     if (includeAllTiles || includeTile(tile))
                     {
-                        bmap::Tile bt;
-                        bt.id = tile->id();
+                        bright::SharedPtr<bmap::Tile> bt(new bmap::Tile());
+                        bt->id = tile->id();
                         // ...
                         if (isCollection)
                         {
                             writeImage(ts, item, ts->imageSource(), ts->image(), QColor(), tile->size());
                         }
                         if (tile->objectGroup())
-                            writeObjectGroupForTile(bt, *(tile->objectGroup()));
+                            writeObjectGroupForTile(*bt, *(tile->objectGroup()));
 
                         if (tile->isAnimated())
                         {
@@ -272,9 +284,10 @@ namespace xbin
                                 std::shared_ptr<bmap::Animation> ani(new bmap::Animation());
                                 ani->tileid = frame.tileId;
                                 ani->duration = frame.duration;
-                                bt.animation.push_back(ani);
+                                bt->animation.push_back(ani);
                             }
                         }
+                        item->tiles.push_back(bt);
                     }
                 }
 
@@ -307,6 +320,7 @@ namespace xbin
                 default:
                     break;
                 }
+                _map.layer.push_back(bl);
             }
 
             std::ofstream file(fileName.toStdString(), std::ios::trunc | std::ios::binary);
@@ -384,11 +398,11 @@ namespace xbin
                 bb.writeString(ts->image->source);
                 bb.writeInt(ts->image->width);
                 bb.writeInt(ts->image->height);
-                bb.writeBytes(&ts->image->data->data);
+                bb.writeBytes(&ts->image->fdata->bdata);
 
                 // tiles
                 bb.writeInt(ts->tiles.size());
-                for (const bright::SharedPtr<bmap::Tile> tile : ts->tiles)
+                for (const bright::SharedPtr<bmap::Tile> &tile : ts->tiles)
                 {
                     /**
                      *  ::bright::int32 id;
@@ -403,11 +417,11 @@ namespace xbin
                     bb.writeString(tile->image->source);
                     bb.writeInt(tile->image->width);
                     bb.writeInt(tile->image->height);
-                    bb.writeBytes(&tile->image->data->data);
+                    bb.writeBytes(&tile->image->fdata->bdata);
 
                     // objs
                     bb.writeInt(tile->objs.size());
-                    for (const bright::SharedPtr<bmap::ObjectItem> obj : tile->objs)
+                    for (const bright::SharedPtr<bmap::ObjectItem> &obj : tile->objs)
                     {
                         /**
                          *      ::bright::int32 id;
@@ -427,13 +441,13 @@ namespace xbin
                         bb.writeInt(obj->height);
 
                         bb.writeInt(obj->polygon.size());
-                        for (const bright::SharedPtr<bmap::Point> p : obj->polygon)
+                        for (const bright::SharedPtr<bmap::Point> &p : obj->polygon)
                         {
                             bb.writeInt(p->x);
                             bb.writeInt(p->y);
                         }
                         bb.writeInt(obj->polyline.size());
-                        for (const bright::SharedPtr<bmap::Point> p : obj->polyline)
+                        for (const bright::SharedPtr<bmap::Point> &p : obj->polyline)
                         {
                             bb.writeInt(p->x);
                             bb.writeInt(p->y);
@@ -442,7 +456,7 @@ namespace xbin
 
                     // animation
                     bb.writeInt(tile->animation.size());
-                    for (const bright::SharedPtr<bmap::Animation> ani : tile->animation)
+                    for (const bright::SharedPtr<bmap::Animation> &ani : tile->animation)
                     {
                         bb.writeInt(ani->tileid);
                         bb.writeInt(ani->duration);
@@ -454,7 +468,7 @@ namespace xbin
 
             // ::bright::Vector<::bright::SharedPtr<bmap::Layer>> layer;
             bb.writeInt(_map.layer.size());
-            for (const bright::SharedPtr<bmap::Layer> layer : _map.layer)
+            for (const bright::SharedPtr<bmap::Layer> &layer : _map.layer)
             {
                 /*
                     ::bright::int32 type;
@@ -497,15 +511,15 @@ namespace xbin
                 bb.writeString(layer->image->source);
                 bb.writeInt(layer->image->width);
                 bb.writeInt(layer->image->height);
-                bb.writeBytes(&layer->image->data->data);
+                bb.writeBytes(&layer->image->fdata->bdata);
                 // properties
 
                 // layerdata
-                bb.writeBytes(&layer->data->data);
+                bb.writeBytes(&layer->ldata->bdata);
 
                 // objs
                 bb.writeInt(layer->objs.size());
-                for (const bright::SharedPtr<bmap::ObjectItem> obj : layer->objs)
+                for (const bright::SharedPtr<bmap::ObjectItem> &obj : layer->objs)
                 {
                     /**
                      *      ::bright::int32 id;
@@ -525,13 +539,13 @@ namespace xbin
                     bb.writeInt(obj->height);
 
                     bb.writeInt(obj->polygon.size());
-                    for (const bright::SharedPtr<bmap::Point> p : obj->polygon)
+                    for (const bright::SharedPtr<bmap::Point> &p : obj->polygon)
                     {
                         bb.writeInt(p->x);
                         bb.writeInt(p->y);
                     }
                     bb.writeInt(obj->polyline.size());
-                    for (const bright::SharedPtr<bmap::Point> p : obj->polyline)
+                    for (const bright::SharedPtr<bmap::Point> &p : obj->polyline)
                     {
                         bb.writeInt(p->x);
                         bb.writeInt(p->y);
@@ -545,6 +559,7 @@ namespace xbin
                 // }
             }
 
+            file.write((const char*)bb.getDataUnsafe(), bb.size());
             file.close();
         }
         catch (std::exception &e)
@@ -570,9 +585,10 @@ namespace xbin
         }
         else
         {
+
             // QString fileRef = toFileReference(source, mUseAbsolutePaths ? QString()
             //                                                     : mDir.path());
-            item->image->source = Tiled::toFileReference(ts->imageSource(), mDir).replace("/", "\\").toStdString();
+            item->image->source = Tiled::toFileReference(ts->imageSource(), mDir.path()).replace("/", "\\").toStdString();
 
             // if (ts->transparentColor().isValid()) item->image->trans = trans;
             item->image->width = ts->tileWidth();
@@ -584,8 +600,8 @@ namespace xbin
                 QBuffer buffer;
                 ts->image().save(&buffer, "png");
                 // 这个数据结构改二进制
-                item->image->data->data.reserve(buffer.data().size());
-                std::memcpy(item->image->data->data.data(), buffer.data().constData(), buffer.data().size());
+                item->image->fdata->bdata.reserve(buffer.data().size());
+                std::memcpy(item->image->fdata->bdata.data(), buffer.data().constData(), buffer.data().size());
             }
         }
     }
@@ -684,7 +700,7 @@ namespace xbin
             // QByteArray tileData;
             // tileData.reserve(bounds.width() * bounds.height() * 4);
 
-            bl->data->data.clear();
+            bl->ldata = std::make_shared<cfg::bmap::LayerData>();
             for (int y = bounds.top(); y <= bounds.bottom(); ++y)
             {
                 for (int x = bounds.left(); x <= bounds.right(); ++x)
@@ -694,10 +710,10 @@ namespace xbin
                     // tileData.append(static_cast<char>(gid >> 8));
                     // tileData.append(static_cast<char>(gid >> 16));
                     // tileData.append(static_cast<char>(gid >> 24));
-                    bl->data->data.insert(bl->data->data.end(), static_cast<char>(gid));
-                    bl->data->data.insert(bl->data->data.end(), static_cast<char>(gid >> 8));
-                    bl->data->data.insert(bl->data->data.end(), static_cast<char>(gid >> 16));
-                    bl->data->data.insert(bl->data->data.end(), static_cast<char>(gid >> 24));
+                    bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid));
+                    bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 8));
+                    bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 16));
+                    bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 24));
                 }
             }
         }
@@ -754,12 +770,14 @@ namespace xbin
 
         // writeProperties(w, objectGroup.properties());
 
-        int idx = 0;
+        // int idx = 0;
         bl->objs.reserve(objectGroup.objects().size());
         for (const Tiled::MapObject *mapObject : objectGroup.objects())
         {
-            writeObject(bl->objs[idx], *mapObject);
-            idx++;
+            bright::SharedPtr<cfg::bmap::ObjectItem> oitem = std::make_shared<cfg::bmap::ObjectItem>();
+            writeObject(oitem, *mapObject);
+            bl->objs.push_back(oitem);
+            // idx++;
         }
     }
 
@@ -836,7 +854,7 @@ namespace xbin
 
                 if (mapObject.shape() == Tiled::MapObject::Polygon)
                 {
-                    oitem->polygon.clear();
+                    //oitem->polygon.clear();
                     for (const QPointF &point : mapObject.polygon())
                     {
                         bright::SharedPtr<bmap::Point> p(new bmap::Point());
@@ -847,7 +865,7 @@ namespace xbin
                 }
                 else
                 {
-                    oitem->polyline.clear();
+                    //oitem->polyline.clear();
                     for (const QPointF &point : mapObject.polygon())
                     {
                         bright::SharedPtr<bmap::Point> p(new bmap::Point());
@@ -882,7 +900,7 @@ namespace xbin
     }
     QString XBinMapFormat::nameFilter() const
     {
-        return tr("Tbin map files (*.bin)");
+        return tr("Xbin map files (*.bin)");
     }
 
     QString XBinMapFormat::shortName() const

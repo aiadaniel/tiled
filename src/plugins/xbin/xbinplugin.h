@@ -26,6 +26,8 @@
 #include "gidmapper.h"
 #include "plugin.h"
 
+#include "luban/Gen/gen_types.h"
+
 #include <QObject>
 
 
@@ -34,6 +36,8 @@ class Map;
 }
 
 namespace xbin {
+
+using namespace cfg;
 
 class XBINSHARED_EXPORT XBinPlugin : public Tiled::Plugin
 {

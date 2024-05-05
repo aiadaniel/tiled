@@ -42,7 +42,7 @@
 
     <bean name="FormatData">
         <!-- <var name="encoding" type="string"/> -->
-        <var name="data" type="bytes"/>
+        <var name="bdata" type="bytes"/>
     </bean>
 
     <!-- 对应的图片索引 -->
@@ -53,7 +53,7 @@
         <var name="height" type="int"/>
         <!-- when source = nil -->
         <!-- <var name="format" type="string"/> -->
-        <var name="data" type="FormatData"/> 
+        <var name="fdata" type="FormatData"/> 
     </bean>
     <bean name="Animation">
         <var name="tileid" type="int"/>
@@ -72,7 +72,7 @@
 
         <var name="animation" type="list,Animation"/>
 
-        <var name="properties" type="map,string,Property"/>
+        <!-- <var name="properties" type="map,string,Property"/> -->
     </bean>
     <!-- 瓦片集  -->
     <bean name="TileSet">
@@ -109,7 +109,7 @@
         <!-- when trans flag -->
         <!-- <var name="transformations" type="Transformations"/> -->
 
-        <var name="properties" type="map,string,Property"/>
+        <!-- <var name="properties" type="map,string,Property"/> -->
         
         <var name="image" type="Image"/>
         <var name="tiles" type="list,Tile"/>
@@ -127,7 +127,7 @@
     <bean name="LayerData">
         <!-- <var name="encoding" type="string"/>
         <var name="compression" type="string"/> -->
-        <var name="data" type="bytes"/>
+        <var name="bdata" type="bytes"/>
     </bean>
     <bean name="Layer">
         <!-- tile 0/objectgroup 1/imagelayer 2/group 3 -->
@@ -154,10 +154,10 @@
         <var name="repeaty" type="int"/>
         <var name="image" type="Image"/>
 
-        <var name="properties" type="map,string,Property"/>
+        <!-- <var name="properties" type="map,string,Property"/> -->
 
         <!-- when tilelayer -->
-        <var name="data" type="LayerData"/>
+        <var name="ldata" type="LayerData"/>
         <!-- when objectgroup -->
         <var name="objs" type="list,ObjectItem"/>
         <!-- when grouplayers -->
@@ -188,7 +188,7 @@
         <var name="nextlayerid" type="int"/>
         <var name="nextobjectid" type="int"/>
 
-        <var name="properties" type="map,string,Property"/>
+        <!-- <var name="properties" type="map,string,Property"/> -->
 
         <!-- map结束 -->
 

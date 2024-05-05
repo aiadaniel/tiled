@@ -73,7 +73,14 @@
         "xstring": "cpp",
         "xtr1common": "cpp",
         "xtree": "cpp",
-        "xutility": "cpp"
+        "xutility": "cpp",
+        "*.moc": "cpp",
+        "array": "cpp",
+        "condition_variable": "cpp",
+        "coroutine": "cpp",
+        "resumable": "cpp",
+        "future": "cpp",
+        "random": "cpp"
     },
     "C_Cpp.default.compilerPath": "cl.exe"
 }
