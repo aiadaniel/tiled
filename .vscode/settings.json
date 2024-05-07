@@ -80,7 +80,8 @@
         "coroutine": "cpp",
         "resumable": "cpp",
         "future": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "qbuffer": "cpp"
     },
     "C_Cpp.default.compilerPath": "cl.exe"
 }

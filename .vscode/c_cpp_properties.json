@@ -10,7 +10,7 @@
                 "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared",
                 "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt",
                 "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um",
-                "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt",
+                "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt"
             ],
             "cStandard": "c11",
             "cppStandard": "c++17",

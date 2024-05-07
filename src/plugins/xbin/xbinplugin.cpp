@@ -15,14 +15,13 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QtCore>
 
 #include <cmath>
 #include <fstream>
 #include <map>
 #include <memory>
 #include <sstream>
-
-#include <qbuffer.h>
 
 #include "mapwriter.h"
 
@@ -149,11 +148,11 @@ namespace xbin
         {
             bmap::BMap _map;
 
-            _map.version = FileFormat::versionString().toStdString();
-            _map.tiledversion = QCoreApplication::applicationVersion().toStdString();
+            // _map.version = FileFormat::versionString().toStdString();
+            // _map.tiledversion = QCoreApplication::applicationVersion().toStdString();
 
-            _map.orientation = orientationToString(map->orientation()).toStdString();
-            _map.renderorder = renderOrderToString(map->renderOrder()).toStdString();
+            _map.orientation = (bmap::Orientation)map->orientation();
+            _map.renderorder = (bmap::RenderOrder)map->renderOrder();
 
             _map.width = map->width();
             _map.height = map->height();
@@ -165,11 +164,16 @@ namespace xbin
             if (map->orientation() == Tiled::Map::Hexagonal)
             {
                 _map.hexsidelength = map->hexSideLength();
+            } else {
+                _map.hexsidelength = 0;
             }
             if (map->orientation() == Tiled::Map::Staggered || map->orientation() == Tiled::Map::Hexagonal)
             {
-                _map.staggeraxis = staggerAxisToString(map->staggerAxis()).toStdString();
-                _map.staggerindex = staggerIndexToString(map->staggerIndex()).toStdString();
+                _map.staggeraxis = (bmap::StaggerAxis)(map->staggerAxis());
+                _map.staggerindex = (bmap::StaggerIndex)(map->staggerIndex());
+            } else {
+                _map.staggeraxis = bmap::StaggerAxis::StaggerX;
+                _map.staggerindex = bmap::StaggerIndex::StaggerOdd;
             }
             _map.nextlayerid = map->nextLayerId();
             _map.nextobjectid = map->nextObjectId();
@@ -200,12 +204,14 @@ namespace xbin
                         QString source = fileName;//todo 相对路径
                         item->source = source.toStdString();
 
-                        _map.tileset.push_back(item);
+                        // _map.tileset.push_back(item);
 
-                        mGidMapper.insert(firstGid, ts);
+                        // mGidMapper.insert(firstGid, ts);
 
-                        firstGid += ts->nextTileId();
-                        continue;
+                        // firstGid += ts->nextTileId();
+                        // continue;
+                    } else {
+                        item->source = "";
                     }
                 }
                 else
@@ -218,11 +224,11 @@ namespace xbin
 
                 const int tileSpacing = ts->tileSpacing();
                 const int margin = ts->margin();
-                if (tileSpacing != 0)
+                // if (tileSpacing != 0)
                 {
                     item->spacing = tileSpacing;
                 }
-                if (margin != 0)
+                // if (margin != 0)
                 {
                     item->margin = margin;
                 }
@@ -234,12 +240,13 @@ namespace xbin
                 // editor setting...
 
                 const QPoint offset = ts->tileOffset();
-
                 if (!offset.isNull())
                 {
-
                     item->tileoffset->x = offset.x();
                     item->tileoffset->y = offset.y();
+                } else {
+                    item->tileoffset->x = 0;
+                    item->tileoffset->y = 0;
                 }
 
                 // orthogonal & gridsize...
@@ -264,19 +271,21 @@ namespace xbin
                 const bool includeAllTiles = isCollection || ts->anyTileOutOfOrder();
                 for (const Tiled::Tile *tile : ts->tiles())
                 {
-                    if (includeAllTiles || includeTile(tile))
+                    // if (includeAllTiles || includeTile(tile))
                     {
                         bright::SharedPtr<bmap::Tile> bt(new bmap::Tile());
                         bt->id = tile->id();
                         // ...
-                        if (isCollection)
+
+                        bt->image = std::make_shared<bmap::Image>();
+                        // if (isCollection)
                         {
                             writeImage(ts, item, ts->imageSource(), ts->image(), QColor(), tile->size());
                         }
-                        if (tile->objectGroup())
-                            writeObjectGroupForTile(*bt, *(tile->objectGroup()));
+                        // if (tile->objectGroup())
+                        //     writeObjectGroupForTile(*bt, *(tile->objectGroup()));
 
-                        if (tile->isAnimated())
+                        // if (tile->isAnimated())
                         {
                             const QVector<Tiled::Frame> &frames = tile->frames();
                             for (const Tiled::Frame &frame : frames)
@@ -332,18 +341,18 @@ namespace xbin
             // tmap.saveToStream(file);
             // using bytebuf serialize 每次导表改变以下字段需要对应修改。。。
             ByteBuf bb(16 * 1024);
-            bb.writeString(_map.version);
-            bb.writeString(_map.tiledversion);
-            bb.writeString(_map.orientation);
-            bb.writeString(_map.renderorder);
+            // bb.writeString(_map.version);
+            // bb.writeString(_map.tiledversion);
+            bb.writeInt((int32_t)_map.orientation);
+            bb.writeInt((int32_t)_map.renderorder);
             bb.writeInt(_map.width);
             bb.writeInt(_map.height);
             bb.writeInt(_map.tilewidth);
             bb.writeInt(_map.tileheight);
             bb.writeInt(_map.infinite);
             bb.writeInt(_map.hexsidelength);
-            bb.writeString(_map.staggeraxis);
-            bb.writeString(_map.staggerindex);
+            bb.writeInt((int32_t)_map.staggeraxis);
+            bb.writeInt((int32_t)_map.staggerindex);
             bb.writeInt(_map.nextlayerid);
             bb.writeInt(_map.nextobjectid);
             // properties
@@ -398,7 +407,7 @@ namespace xbin
                 bb.writeString(ts->image->source);
                 bb.writeInt(ts->image->width);
                 bb.writeInt(ts->image->height);
-                bb.writeBytes(&ts->image->fdata->bdata);
+                // bb.writeBytes(&ts->image->fdata->bdata);
 
                 // tiles
                 bb.writeInt(ts->tiles.size());
@@ -417,7 +426,7 @@ namespace xbin
                     bb.writeString(tile->image->source);
                     bb.writeInt(tile->image->width);
                     bb.writeInt(tile->image->height);
-                    bb.writeBytes(&tile->image->fdata->bdata);
+                    // bb.writeBytes(&tile->image->fdata->bdata);
 
                     // objs
                     bb.writeInt(tile->objs.size());
@@ -505,17 +514,23 @@ namespace xbin
                 bb.writeString(layer->tintcolor);
                 bb.writeInt(layer->offsetx);
                 bb.writeInt(layer->offsety);
-                bb.writeInt(layer->repeatx);
-                bb.writeInt(layer->repeaty);
-                // image
-                bb.writeString(layer->image->source);
-                bb.writeInt(layer->image->width);
-                bb.writeInt(layer->image->height);
-                bb.writeBytes(&layer->image->fdata->bdata);
+                // when image layer
+                // bb.writeInt(layer->repeatx);
+                // bb.writeInt(layer->repeaty);
+                //if (layer->type == Tiled::TileLayer::ImageLayerType) {
+                    bb.writeString(layer->image->source);
+                    bb.writeInt(layer->image->width);
+                    bb.writeInt(layer->image->height);
+                    // bb.writeBytes(&layer->image->fdata->bdata);
+                //}
+
                 // properties
 
                 // layerdata
-                bb.writeBytes(&layer->ldata->bdata);
+                bb.writeSize(layer->ldata->bdata.size());
+                for (const int32 i : layer->ldata->bdata) {
+                    bb.writeInt(i);
+                }
 
                 // objs
                 bb.writeInt(layer->objs.size());
@@ -581,6 +596,9 @@ namespace xbin
         if (ts->image().isNull() && ts->imageSource().isEmpty())
         {
             // no need
+            item->image->source = "";
+            item->image->width = 0;
+            item->image->height = 0;
             return;
         }
         else
@@ -593,15 +611,15 @@ namespace xbin
             // if (ts->transparentColor().isValid()) item->image->trans = trans;
             item->image->width = ts->tileWidth();
             item->image->height = ts->tileHeight();
-            if (ts->imageSource().isEmpty())
+            if (ts->imageSource().isEmpty()) // 当前不会
             {
                 // item->image->data->encoding = "base64";
 
                 QBuffer buffer;
                 ts->image().save(&buffer, "png");
                 // 这个数据结构改二进制
-                item->image->fdata->bdata.reserve(buffer.data().size());
-                std::memcpy(item->image->fdata->bdata.data(), buffer.data().constData(), buffer.data().size());
+                // item->image->fdata->bdata.reserve(buffer.data().size());
+                // std::memcpy(item->image->fdata->bdata.data(), buffer.data().constData(), buffer.data().size());
             }
         }
     }
@@ -616,18 +634,27 @@ namespace xbin
     }
     void XBinMapFormat::writeLayerAttributes(std::shared_ptr<bmap::Layer> &bl, const Tiled::Layer &layer)
     {
-        if (layer.id() != 0)
+        // when image layer
+        bl->image = std::make_shared<bmap::Image>();
+        bl->image->source = "";
+        bl->image->width = 0;
+        bl->image->height = 0;
+
+        bl->ldata = std::make_shared<bmap::LayerData>();
+
+        bl->type = layer.layerType();
+        // if (layer.id() != 0)
             bl->id = layer.id();
-        if (!layer.name().isEmpty())
+        // if (!layer.name().isEmpty())
             bl->name = layer.name().toStdString();
         const int x = layer.x();
         const int y = layer.y();
         const qreal opacity = layer.opacity();
-        if (x != 0)
+        // if (x != 0)
             bl->x = x;
-        if (y != 0)
+        // if (y != 0)
             bl->y = y;
-        if (layer.layerType() == Tiled::Layer::TileLayerType)
+        // if (layer.layerType() == Tiled::Layer::TileLayerType)
         {
             auto &tileLayer = static_cast<const Tiled::TileLayer &>(layer);
             int width = tileLayer.width();
@@ -637,11 +664,11 @@ namespace xbin
             bl->height = height;
         }
 
-        if (!layer.isVisible())
+        // if (!layer.isVisible())
             bl->visible = 0;
-        if (layer.isLocked())
+        // if (layer.isLocked())
             bl->locked = 1;
-        if (opacity != qreal(1))
+        // if (opacity != qreal(1))
             bl->opacity = opacity;
         if (layer.tintColor().isValid())
         {
@@ -653,6 +680,9 @@ namespace xbin
         {
             bl->offsetx = offset.x();
             bl->offsety = offset.y();
+        } else {
+            bl->offsetx = 0;
+            bl->offsety = 0;
         }
 
         // const QPointF parallaxFactor = layer.parallaxFactor();
@@ -697,23 +727,17 @@ namespace xbin
             if (bounds.isEmpty())
                 bounds = QRect(0, 0, tileLayer.width(), tileLayer.height());
 
-            // QByteArray tileData;
-            // tileData.reserve(bounds.width() * bounds.height() * 4);
-
             bl->ldata = std::make_shared<cfg::bmap::LayerData>();
             for (int y = bounds.top(); y <= bounds.bottom(); ++y)
             {
                 for (int x = bounds.left(); x <= bounds.right(); ++x)
                 {
                     const unsigned gid = mGidMapper.cellToGid(tileLayer.cellAt(x, y));
-                    // tileData.append(static_cast<char>(gid));
-                    // tileData.append(static_cast<char>(gid >> 8));
-                    // tileData.append(static_cast<char>(gid >> 16));
-                    // tileData.append(static_cast<char>(gid >> 24));
-                    bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid));
-                    bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 8));
-                    bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 16));
-                    bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 24));
+                    // bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid));
+                    // bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 8));
+                    // bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 16));
+                    // bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 24));
+                    bl->ldata->bdata.insert(bl->ldata->bdata.end(), gid);
                 }
             }
         }
@@ -795,7 +819,7 @@ namespace xbin
 
         bool isTemplateInstance = mapObject.isTemplateInstance();
 
-        if (!mapObject.isTemplateBase())
+        // if (!mapObject.isTemplateBase())
             oitem->id = id;
 
         if (const Tiled::ObjectTemplate *objectTemplate = mapObject.objectTemplate())
@@ -812,24 +836,24 @@ namespace xbin
         // if (!className.isEmpty())
         //     w.writeAttribute(FileFormat::classPropertyNameForObject(), className);
 
-        if (shouldWrite(!mapObject.cell().isEmpty(), isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::CellProperty)))
+        // if (shouldWrite(!mapObject.cell().isEmpty(), isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::CellProperty)))
         {
             const unsigned gid = mGidMapper.cellToGid(mapObject.cell());
             oitem->gid = gid;
         }
 
-        if (!mapObject.isTemplateBase())
+        // if (!mapObject.isTemplateBase())
         {
             oitem->x = pos.x();
             oitem->y = pos.y();
         }
 
-        if (shouldWrite(true, isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::SizeProperty)))
+        // if (shouldWrite(true, isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::SizeProperty)))
         {
             const QSizeF size = mapObject.size();
-            if (size.width() != 0)
+            // if (size.width() != 0)
                 oitem->width = size.width();
-            if (size.height() != 0)
+            // if (size.height() != 0)
                 oitem->height = size.height();
         }
 
@@ -849,7 +873,7 @@ namespace xbin
         case Tiled::MapObject::Polygon:
         case Tiled::MapObject::Polyline:
         {
-            if (shouldWrite(true, isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::ShapeProperty)))
+            // if (shouldWrite(true, isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::ShapeProperty)))
             {
 
                 if (mapObject.shape() == Tiled::MapObject::Polygon)
