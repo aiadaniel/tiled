@@ -14,6 +14,12 @@
         <var name="LeftDown" value="2"/>
         <var name="LeftUp" value="3"/>
     </enum>
+    <enum name="LayerType">
+        <var name="TileLayerType" value="1"/>
+        <var name="ObjectGroupType" value="2"/>
+        <var name="ImageLayerType" value="4"/>
+        <var name="GroupLayerType" value="8"/>
+    </enum>
     <enum name="StaggerAxis">
         <var name="StaggerX" value="0"/>
         <var name="StaggerY" value="1"/>
@@ -31,37 +37,19 @@
         <var name="type" type="int"/>
         <var name="value" type="string"/>
     </bean>
+
     <!-- object group item -->
     <bean name="ObjectItem">
         <var name="id" type="int"/>
         <!-- <var name="template" type="int"/> -->
-        <var name="gid" type="int"/>
+        <var name="gid" type="int?"/>
         <var name="x" type="int"/>
         <var name="y" type="int"/>
-        <var name="width" type="int"/>
-        <var name="height" type="int"/>
+        <var name="width" type="int?"/>
+        <var name="height" type="int?"/>
         <!-- ... -->
         <var name="polygon" type="list,Point"/>
         <var name="polyline" type="list,Point"/>
-    </bean>
-
-    <!--  -->
-    <bean name="Grid">
-        <var name="orientation" type="string"/>
-        <var name="width" type="int"/>
-        <var name="height" type="int"/>
-    </bean>
-    <!--  -->
-    <bean name="Transformations">
-        <var name="hflip" type="int"/>
-        <var name="vflip" type="int"/>
-        <var name="rotate" type="int"/>
-        <var name="preferuntransformed" type="int"/>
-    </bean>
-    <!--  -->
-    <bean name="TileOffset">
-        <var name="x" type="int"/>
-        <var name="y" type="int"/>
     </bean>
 
     <bean name="FormatData">
@@ -79,30 +67,59 @@
         <!-- <var name="format" type="string"/> -->
         <!-- <var name="fdata" type="FormatData"/>  -->
     </bean>
-    <bean name="Animation">
-        <var name="tileid" type="int"/>
-        <var name="duration" type="int"/>
+
+    <!-- tileset -->
+    <!--  -->
+    <!--  -->
+    <bean name="Grid">
+        <var name="orientation" type="Orientation"/>
+        <var name="width" type="int"/>
+        <var name="height" type="int"/>
+    </bean>
+    <!--  -->
+    <!-- <bean name="Transformations">
+        <var name="hflip" type="int"/>
+        <var name="vflip" type="int"/>
+        <var name="rotate" type="int"/>
+        <var name="preferuntransformed" type="int"/>
+    </bean> -->
+    <!--  -->
+    <bean name="TileOffset">
+        <var name="x" type="int"/>
+        <var name="y" type="int"/>
+    </bean>
+
+    <!-- animation params -->
+    <bean name="Anis">
+        <!-- <var name="tileid" type="int"/> -->
+        <!-- <var name="duration" type="int"/> -->
+        <!-- 这里用Point x y来表示上面2个数据 但最终我们只写int，v2是float -->
+        <var name="anilist" type="list,Point"/>
+    </bean>
+    <bean name="Objs">
+        <var name="objlist" type="list,ObjectItem"/>
     </bean>
     <!-- 瓦片 -->
     <bean name="Tile">
         <var name="id" type="int"/>
         <!-- image rect (ignore) x,y,width,height, -->
 
-        <var name="image" type="Image"/>
+        <var name="image" type="Image?"/>
 
         <!-- ...classname,probability,properties, see mapwriter.writeTileset -->
         
-        <var name="objs" type="list,ObjectItem"/>
+        <!-- tile的obj主要是一些如形状、碰撞体等 -->
+        <var name="objs" type="Objs?"/>
 
-        <var name="animation" type="list,Animation"/>
+        <var name="anis" type="Anis?"/>
 
         <!-- <var name="properties" type="map,string,Property"/> -->
     </bean>
     <!-- 瓦片集  -->
     <bean name="TileSet">
-        <var name="firstgid" type="int"/>
-        <!-- when firstgid > 0 & filename no empty -->
-        <var name="source" type="string"/>
+        <var name="firstgid" type="int?"/>
+        <!-- when firstgid > 0 & filename no empty 这里我们不再使用独立tsx文件，直接全部内置，一次解析 -->
+        <!-- <var name="source" type="string"/> -->
 
         <var name="name" type="string"/>
         <!-- when classname -->
@@ -118,31 +135,33 @@
         <var name="columns" type="int"/>
 
         <!-- when ... -->
-        <var name="backgroundcolor" type="string"/>
+        <!-- <var name="backgroundcolor" type="string"/>
         <var name="objectalignment" type="string"/>
         <var name="tilerendersize" type="string"/>
-        <var name="fillmode" type="string"/>
+        <var name="fillmode" type="string"/> -->
 
-        <!-- here editorsettings (needn't?) -->
+        <!-- here editorsettings (not need) -->
 
         <!-- when offset -->
-        <var name="tileoffset" type="TileOffset"/>
+        <var name="tileoffset" type="TileOffset?"/>
         
         <!-- when not orthogonal and tilesize!=gridsize -->
-        <var name="grid" type="Grid"/>
+        <var name="grid" type="Grid?"/>
         <!-- when trans flag -->
         <!-- <var name="transformations" type="Transformations"/> -->
 
         <!-- <var name="properties" type="map,string,Property"/> -->
         
-        <var name="image" type="Image"/>
+        <var name="image" type="Image?"/>
         <var name="tiles" type="list,Tile"/>
 
         <!-- ... wangsets ignore -->
 
     </bean>
 
-
+    <!-- layer -->
+    <!--  -->
+    <!--  -->
     <!-- 图层 part of no important ignore -->
     <bean name="Point">
         <var name="x" type="int"/>
@@ -155,14 +174,15 @@
     </bean>
     <bean name="Layer">
         <!-- tile 0/objectgroup 1/imagelayer 2/group 3 -->
-        <var name="type" type="int"/>
+        <var name="type" type="LayerType"/>
 
         <var name="id" type="int"/>
         <var name="name" type="string"/>
         <!-- <var name="classname" type="string"/> -->
-        <var name="x" type="int"/>
-        <var name="y" type="int"/>
+        <var name="x" type="int?"/>
+        <var name="y" type="int?"/>
 
+        <!-- when tilelayer -->
         <var name="width" type="int"/>
         <var name="height" type="int"/>
 
@@ -173,15 +193,15 @@
 
         <var name="offsetx" type="int"/>
         <var name="offsety" type="int"/>
+        <!-- <var name="properties" type="map,string,Property"/> -->
+
         <!-- when imagelayer -->
         <!-- <var name="repeatx" type="int"/>
         <var name="repeaty" type="int"/> -->
-        <var name="image" type="Image"/>
-
-        <!-- <var name="properties" type="map,string,Property"/> -->
+        <var name="image" type="Image?"/>
 
         <!-- when tilelayer -->
-        <var name="ldata" type="LayerData"/>
+        <var name="ldata" type="LayerData?"/>
         <!-- when objectgroup -->
         <var name="objs" type="list,ObjectItem"/>
         <!-- when grouplayers -->
@@ -202,15 +222,15 @@
         <var name="infinite" type="int"/>
 
         <!-- 六角交错 -->
-        <var name="hexsidelength" type="int"/>
+        <var name="hexsidelength" type="int?"/>
         <!-- 六角、等角交错 -->
-        <var name="staggeraxis" type="StaggerAxis"/>
-        <var name="staggerindex" type="StaggerIndex"/>
+        <var name="staggeraxis" type="StaggerAxis?"/>
+        <var name="staggerindex" type="StaggerIndex?"/>
 
         <!-- parallaxoriginx... ignore -->
 
-        <var name="nextlayerid" type="int"/>
-        <var name="nextobjectid" type="int"/>
+        <!-- <var name="nextlayerid" type="int"/>
+        <var name="nextobjectid" type="int"/> -->
 
         <!-- <var name="properties" type="map,string,Property"/> -->
 

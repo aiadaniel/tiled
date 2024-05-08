@@ -68,8 +68,8 @@ public:
     QString errorString() const override;
 
 private:
-    void writeImage(const Tiled::SharedTileset &ts,
-                std::shared_ptr<bmap::TileSet> &item,
+    void writeImage(
+                std::shared_ptr<bmap::Image> &item,
                 const QUrl &source,
                 const QPixmap &image,
                 const QColor &transColor,
@@ -79,7 +79,7 @@ private:
     void writeTileLayerData(std::shared_ptr<bmap::Layer> &bl, const Tiled::TileLayer &tileLayer, QRect bounds);
     void writeObjectGroupForTile(bmap::Tile &bt, const Tiled::ObjectGroup &objectGroup);
     void writeObjectGroup(std::shared_ptr<bmap::Layer> &bl, const Tiled::ObjectGroup &objectGroup);
-    void writeObject(bright::SharedPtr<cfg::bmap::ObjectItem> oitem, const Tiled::MapObject &mapObject);
+    void writeObject(bright::SharedPtr<cfg::bmap::ObjectItem> &oitem, const Tiled::MapObject &mapObject);
 
 protected:
     QString mError;
