@@ -663,7 +663,7 @@ namespace xbin
             bimg = std::make_shared<bmap::Image>();
             // QString fileRef = toFileReference(source, mUseAbsolutePaths ? QString()
             //                                                     : mDir.path());
-            bimg->source = Tiled::toFileReference(source, mDir.path()).toStdString(); // replace("/", "\\").
+            bimg->source = Tiled::toFileReference(source, mDir.path()).replace(".png", "").toStdString();
 
             // if (ts->transparentColor().isValid()) item->image->trans = trans;
             const QSize imageSize = image.isNull() ? size : image.size();

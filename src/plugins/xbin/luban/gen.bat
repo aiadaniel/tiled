@@ -1,4 +1,4 @@
-set GEN_CLIENT=dotnet %LUBAN_CLIENTSERVER%
+set GEN_CLIENT=dotnet .\Luban.ClientServer\Luban.ClientServer.dll
 
 %GEN_CLIENT% -j cfg --^
  -d Defines\__root__.xml ^
