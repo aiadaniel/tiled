@@ -559,7 +559,7 @@ namespace xbin
                 bb.writeInt(layer->height);
                 bb.writeInt(layer->visible);
                 bb.writeInt(layer->locked);
-                bb.writeInt(layer->opacity);
+                bb.writeFloat(layer->opacity);
                 bb.writeString(layer->tintcolor);
                 bb.writeInt(layer->offsetx);
                 bb.writeInt(layer->offsety);

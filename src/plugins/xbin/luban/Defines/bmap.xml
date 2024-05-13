@@ -188,7 +188,7 @@
 
         <var name="visible" type="int"/>
         <var name="locked" type="int"/>
-        <var name="opacity" type="int"/>
+        <var name="opacity" type="float"/>
         <var name="tintcolor" type="string"/>
 
         <var name="offsetx" type="int"/>
