@@ -170,7 +170,7 @@
     <bean name="LayerData">
         <!-- <var name="encoding" type="string"/>
         <var name="compression" type="string"/> -->
-        <var name="bdata" type="list,int"/>
+        <var name="bdata" type="string"/>
     </bean>
     <bean name="Layer">
         <!-- tile 0/objectgroup 1/imagelayer 2/group 3 -->

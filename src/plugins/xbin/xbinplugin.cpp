@@ -580,10 +580,11 @@ namespace xbin
                 // layerdata
                 bb.writeBool(layer->ldata != nullptr);
                 if (layer->ldata) {
-                    bb.writeSize(layer->ldata->bdata.size());
-                    for (const int32 i : layer->ldata->bdata) {
-                        bb.writeInt(i);
-                    }
+                    bb.writeString(layer->ldata->bdata);
+                    // bb.writeSize(layer->ldata->bdata.size());
+                    // for (const int32 i : layer->ldata->bdata) {
+                    //     bb.writeInt(i);
+                    // }
                 }
 
                 // objs
@@ -787,22 +788,25 @@ namespace xbin
         //     w.writeCharacters(chunkData);
         // } else
         {
-            if (bounds.isEmpty())
-                bounds = QRect(0, 0, tileLayer.width(), tileLayer.height());
+            // if (bounds.isEmpty())
+            //     bounds = QRect(0, 0, tileLayer.width(), tileLayer.height());
 
+            // bl->ldata = std::make_shared<cfg::bmap::LayerData>();
+            // for (int y = bounds.top(); y <= bounds.bottom(); ++y)
+            // {
+            //     for (int x = bounds.left(); x <= bounds.right(); ++x)
+            //     {
+            //         const unsigned gid = mGidMapper.cellToGid(tileLayer.cellAt(x, y));
+            //         bl->ldata->bdata.emplace_back(gid);// from c++11 (old push_back)
+            //     }
+            // }
+
+            QByteArray chunkData = mGidMapper.encodeLayerData(tileLayer,
+                                                          mLayerDataFormat,
+                                                          bounds,
+                                                          mCompressionlevel);
             bl->ldata = std::make_shared<cfg::bmap::LayerData>();
-            for (int y = bounds.top(); y <= bounds.bottom(); ++y)
-            {
-                for (int x = bounds.left(); x <= bounds.right(); ++x)
-                {
-                    const unsigned gid = mGidMapper.cellToGid(tileLayer.cellAt(x, y));
-                    // bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid));
-                    // bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 8));
-                    // bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 16));
-                    // bl->ldata->bdata.insert(bl->ldata->bdata.end(), static_cast<char>(gid >> 24));
-                    bl->ldata->bdata.emplace_back(gid);// from c++11 (old push_back)
-                }
-            }
+            bl->ldata->bdata = chunkData;
         }
     }
     void XBinMapFormat::writeObjectGroupForTile(bmap::Tile &bt, const Tiled::ObjectGroup &objectGroup)
