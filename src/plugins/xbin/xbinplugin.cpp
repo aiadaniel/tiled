@@ -664,7 +664,10 @@ namespace xbin
             bimg = std::make_shared<bmap::Image>();
             // QString fileRef = toFileReference(source, mUseAbsolutePaths ? QString()
             //                                                     : mDir.path());
-            bimg->source = Tiled::toFileReference(source, mDir.path()).replace(".png", "").toStdString();
+            // [lxm] 我们在编辑器直接指定图集和具体图片，不需要把全路径都写入，保留文件名即可
+            QString temp = Tiled::toFileReference(source, mDir.path()).replace(".png", "");
+            temp = temp.mid(temp.lastIndexOf("/")+1);
+            bimg->source = temp.toStdString();
 
             // if (ts->transparentColor().isValid()) item->image->trans = trans;
             const QSize imageSize = image.isNull() ? size : image.size();
@@ -806,7 +809,7 @@ namespace xbin
                                                           bounds,
                                                           mCompressionlevel);
             bl->ldata = std::make_shared<cfg::bmap::LayerData>();
-            bl->ldata->bdata = chunkData;
+            bl->ldata->bdata = QString::fromLatin1(chunkData).toStdString();
         }
     }
     void XBinMapFormat::writeObjectGroupForTile(bmap::Tile &bt, const Tiled::ObjectGroup &objectGroup)
