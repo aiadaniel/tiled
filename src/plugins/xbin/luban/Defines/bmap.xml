@@ -183,8 +183,8 @@
         <var name="y" type="int?"/>
 
         <!-- when tilelayer -->
-        <var name="width" type="int"/>
-        <var name="height" type="int"/>
+        <!-- <var name="width" type="int"/>
+        <var name="height" type="int"/> -->
 
         <var name="visible" type="int"/>
         <var name="locked" type="int"/>

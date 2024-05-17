@@ -555,8 +555,8 @@ namespace xbin
                 if (layer->x) bb.writeInt(*layer->x);
                 bb.writeBool(layer->y != nullptr);
                 if (layer->y) bb.writeInt(*layer->y);
-                bb.writeInt(layer->width);
-                bb.writeInt(layer->height);
+                // bb.writeInt(layer->width);
+                // bb.writeInt(layer->height);
                 bb.writeInt(layer->visible);
                 bb.writeInt(layer->locked);
                 bb.writeFloat(layer->opacity);
@@ -723,10 +723,10 @@ namespace xbin
             int width = tileLayer.width();
             int height = tileLayer.height();
 
-            bl->width = width;
-            bl->height = height;
+            // bl->width = width;
+            // bl->height = height;
         } else {
-            bl->width = bl->height = 0;
+            // bl->width = bl->height = 0;
         }
 
         if (!layer.isVisible()) bl->visible = 0;
