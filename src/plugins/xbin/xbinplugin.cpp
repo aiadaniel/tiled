@@ -13,6 +13,7 @@
 #include "tilelayer.h"
 #include "fileformat.h"
 
+#include <QTextStream>
 #include <QCoreApplication>
 #include <QDir>
 #include <QtCore>
@@ -22,8 +23,10 @@
 #include <map>
 #include <memory>
 #include <sstream>
+#include <iostream> 
 
 #include "mapwriter.h"
+#include "maptovariantconverter.h"
 
 namespace
 {
@@ -93,6 +96,7 @@ namespace xbin
     void XBinPlugin::initialize()
     {
         addObject(new XBinMapFormat(this));
+        addObject(new XBinTilesetFormat(this));
     }
 
     XBinMapFormat::XBinMapFormat(QObject *)
@@ -146,6 +150,8 @@ namespace xbin
 
         try
         {
+            QTextStream cout(stdout);
+
             bmap::BMap _map;
 
             // _map.version = FileFormat::versionString().toStdString();
@@ -192,127 +198,31 @@ namespace xbin
             unsigned firstGid = 1;
             for (const Tiled::SharedTileset &ts : map->tilesets())
             {
-                std::shared_ptr<bmap::TileSet> item(new bmap::TileSet());
-
-                // 共享指针数据都需要创建保证写时不崩溃
-                // item->tileoffset = std::make_shared<bmap::TileOffset>();
-                // item->grid = std::make_shared<bmap::Grid>();
-                // item->image = std::make_shared<bmap::Image>();
-
                 if (firstGid > 0)
                 {
-                    item->firstgid = std::make_shared<bright::int32>( firstGid );
+                    
+                    // item->firstgid = ( firstGid );//std::make_shared<bright::int32>
                     const QString &fileName = ts->fileName();
                     if (!fileName.isEmpty())
                     {
-                        // 我们直接内置，不再独立tsx文件
-                        // QString source = fileName;//todo 相对路径
-                        // item->source = source.toStdString();
+                        // 独立tsx文件 独立才支持复用
+                        QString source = fileName;//todo 相对路径
+                        QString temp = source.replace(".tsx", "");
+                        temp = temp.mid(temp.lastIndexOf("/")+1);
 
-                        // _map.tileset.push_back(item);
+                        _map.tileset[firstGid] = temp.toStdString();
 
-                        // mGidMapper.insert(firstGid, ts);
+                        mGidMapper.insert(firstGid, ts);
 
-                        // firstGid += ts->nextTileId();
-                        // continue;
-                    } else {
-                        // item->source = "";
-                    }
+                        firstGid += ts->nextTileId();
+                        continue;
+                    } 
                 }
                 else
                 {
                     // version & tiledversion
                 }
-                item->name = ts->name().toStdString();
-                item->tilewidth = ts->tileWidth();
-                item->tileheight = ts->tileHeight();
-
-                const int tileSpacing = ts->tileSpacing();
-                const int margin = ts->margin();
-                // if (tileSpacing != 0)
-                {
-                    item->spacing = tileSpacing;
-                }
-                // if (margin != 0)
-                {
-                    item->margin = margin;
-                }
-                item->tilecount = ts->tileCount();
-                item->columns = ts->columnCount();
-
-                //...
-
-                // editor setting...
-
-                const QPoint offset = ts->tileOffset();
-                if (!offset.isNull())
-                {
-                    item->tileoffset = std::make_shared<bmap::TileOffset>();
-                    item->tileoffset->x = offset.x();
-                    item->tileoffset->y = offset.y();
-                } 
-                // else {
-                //     item->tileoffset->x = 0;
-                //     item->tileoffset->y = 0;
-                // }
-
-                // orthogonal & gridsize...
-
-                if (ts->orientation() != Tiled::Tileset::Orthogonal || ts->gridSize() != ts->tileSize())
-                {
-                    item->grid = std::make_shared<bmap::Grid>();
-                    item->grid->orientation = (bmap::Orientation)(ts->orientation());
-                    item->grid->width = ts->gridSize().width();
-                    item->grid->height = ts->gridSize().height();
-                }
-
-                // transformation...
-
-                // properties...
-
-                // image
-                // item->image = std::make_shared<bmap::Image>();
-                writeImage(item->image, ts->imageSource(), ts->image(), ts->transparentColor(), QSize(ts->imageWidth(), ts->imageHeight()));
-
-                // *******************************************************all tiles
-                const bool isCollection = ts->isCollection();// 这个是指 零散图 还是 合图（image标签）
-                const bool includeAllTiles = isCollection || ts->anyTileOutOfOrder();
-                for (const Tiled::Tile *tile : ts->tiles())
-                {
-                    // if (includeAllTiles || includeTile(tile))
-                    {
-                        bright::SharedPtr<bmap::Tile> bt(new bmap::Tile());
-                        bt->id = tile->id();
-                        // ...
-
-                        if (isCollection)
-                        {
-                            
-                            writeImage(bt->image, tile->imageSource(), tile->image(), QColor(), tile->size());
-                        }
-                        if (tile->objectGroup())
-                            writeObjectGroupForTile(*bt, *(tile->objectGroup()));
-
-                        if (tile->isAnimated())
-                        {
-                            bt->anis = std::make_shared<bmap::Anis>();
-                            // std::shared_ptr<bmap::Anis> ani(new bmap::Anis());
-                            const QVector<Tiled::Frame> &frames = tile->frames();
-                            for (const Tiled::Frame &frame : frames)
-                            {
-                                std::shared_ptr<bmap::Point> v2(new bmap::Point());
-                                v2->x = frame.tileId;
-                                v2->y = frame.duration;
-                                bt->anis->anilist.emplace_back(v2);
-                            }
-                        }
-                        item->tiles.push_back(bt);
-                    }
-                }
-
-                _map.tileset.push_back(item);
-                mGidMapper.insert(firstGid, ts);
-                firstGid += ts->nextTileId();
+                
             }
 
             // 2. tilelayer
@@ -381,146 +291,14 @@ namespace xbin
 
             // ::bright::Vector<::bright::SharedPtr<bmap::TileSet>> tileset;
             bb.writeInt(_map.tileset.size());
-            for (const bright::SharedPtr<bmap::TileSet> &ts : _map.tileset)
-            {
-                /**
-                 *      ::bright::int32 firstgid;
-                        ::bright::String source;
-                        ::bright::String name;
-                        ::bright::int32 tilewidth;
-                        ::bright::int32 tileheight;
-                        ::bright::int32 spacing;
-                        ::bright::int32 margin;
-                        ::bright::int32 tilecount;
-                        ::bright::int32 columns;
-                        ::bright::String backgroundcolor;
-                        ::bright::String objectalignment;
-                        ::bright::String tilerendersize;
-                        ::bright::String fillmode;
-                        ::bright::SharedPtr<bmap::TileOffset> tileoffset;
-                        ::bright::SharedPtr<bmap::Grid> grid;
-                        ::bright::HashMap<::bright::String, ::bright::SharedPtr<bmap::Property>> properties;
-                        ::bright::SharedPtr<bmap::Image> image;
-                        ::bright::Vector<::bright::SharedPtr<bmap::Tile>> tiles;
-                */
-                bb.writeBool(ts->firstgid != nullptr);
-                if (ts->firstgid)
-                    bb.writeInt(*ts->firstgid);
-                // bb.writeString(ts->source);
-                bb.writeString(ts->name);
-                bb.writeInt(ts->tilewidth);
-                bb.writeInt(ts->tileheight);
-                bb.writeInt(ts->spacing);
-                bb.writeInt(ts->margin);
-                bb.writeInt(ts->tilecount);
-                bb.writeInt(ts->columns);
-                // bb.writeString(ts->backgroundcolor);
-                // bb.writeString(ts->objectalignment);
-                // bb.writeString(ts->tilerendersize);
-                // bb.writeString(ts->fillmode);
-
-                // tileoffset
-                bb.writeBool(ts->tileoffset != nullptr);
-                if (ts->tileoffset) {
-                    bb.writeInt(ts->tileoffset->x);
-                    bb.writeInt(ts->tileoffset->y);
-                }
-                // grid
-                bb.writeBool(ts->grid != nullptr);
-                if (ts->grid) {
-                    bb.writeInt((int)ts->grid->orientation);
-                    bb.writeInt(ts->grid->width);
-                    bb.writeInt(ts->grid->height);
-                }
-                // properties
-
-                // image
-                bb.writeBool(ts->image != nullptr);
-                if (ts->image) {
-                    bb.writeString(ts->image->source);
-                    bb.writeInt(ts->image->width);
-                    bb.writeInt(ts->image->height);
-                    // bb.writeBytes(&ts->image->fdata->bdata);
-                }
-
-                // tiles
-                bb.writeInt(ts->tiles.size());
-                for (const bright::SharedPtr<bmap::Tile> &tile : ts->tiles)
-                {
-                    /**
-                     *  ::bright::int32 id;
-                        ::bright::SharedPtr<bmap::Image> image;
-                        ::bright::Vector<::bright::SharedPtr<bmap::ObjectItem>> objs;
-                        ::bright::Vector<::bright::SharedPtr<bmap::Animation>> animation;
-                        ::bright::HashMap<::bright::String, ::bright::SharedPtr<bmap::Property>> properties;
-                    */
-                    bb.writeInt(tile->id);
-
-                    // image
-                    bb.writeBool(tile->image != nullptr);
-                    if (tile->image) {
-                        bb.writeString(tile->image->source);
-                        bb.writeInt(tile->image->width);
-                        bb.writeInt(tile->image->height);
-                        // bb.writeBytes(&tile->image->fdata->bdata);
-                    }
-
-                    // objs
-                    bb.writeBool(tile->objs != nullptr);
-                    if (tile->objs) {
-                        bb.writeInt(tile->objs->objlist.size());
-                        for (const bright::SharedPtr<bmap::ObjectItem> &obj : tile->objs->objlist)
-                        {
-                            /**
-                             *      ::bright::int32 id;
-                                    ::bright::int32 gid;
-                                    ::bright::int32 x;
-                                    ::bright::int32 y;
-                                    ::bright::int32 width;
-                                    ::bright::int32 height;
-                                    ::bright::Vector<::bright::SharedPtr<bmap::Point>> polygon;
-                                    ::bright::Vector<::bright::SharedPtr<bmap::Point>> polyline;
-                            */
-                            bb.writeInt(obj->id);
-                            bb.writeBool(obj->gid != nullptr);
-                            if (obj->gid) bb.writeInt(*obj->gid);
-                            bb.writeInt(obj->x);
-                            bb.writeInt(obj->y);
-                            bb.writeBool(obj->width != nullptr);
-                            if (obj->width) bb.writeInt(*obj->width);
-                            bb.writeBool(obj->height != nullptr);
-                            if (obj->height) bb.writeInt(*obj->height);
-
-                            bb.writeInt(obj->polygon.size());
-                            for (const bright::SharedPtr<bmap::Point> &p : obj->polygon)
-                            {
-                                bb.writeInt(p->x);
-                                bb.writeInt(p->y);
-                            }
-                            bb.writeInt(obj->polyline.size());
-                            for (const bright::SharedPtr<bmap::Point> &p : obj->polyline)
-                            {
-                                bb.writeInt(p->x);
-                                bb.writeInt(p->y);
-                            }
-                        }
-                    }
-
-                    // animation
-                    bb.writeBool(tile->anis != nullptr);
-                    if (tile->anis) {
-                        bb.writeInt(tile->anis->anilist.size());
-                        for (bright::SharedPtr<bmap::Point> &ani : tile->anis->anilist)
-                        {
-                            bb.writeInt(ani->x);
-                            bb.writeInt(ani->y);
-                            // bb.writeVector2(ani);// float 
-                        }
-                    }
-                    // properties
-
-                }// end tile
-            }// end tileset
+            for (const auto& pair: _map.tileset) {
+                bb.writeInt(pair.first);//firstgid
+                bb.writeString(pair.second);//source
+            }
+            // for (const bright::SharedPtr<bmap::TileSet> &ts : _map.tileset)
+            // {
+                
+            // }// end tileset
 
             // ::bright::Vector<::bright::SharedPtr<bmap::Layer>> layer;
             bb.writeInt(_map.layer.size());
@@ -998,5 +776,339 @@ namespace xbin
     {
         return mError;
     }
+
+
+
+
+
+
+XBinTilesetFormat::XBinTilesetFormat(QObject *parent)
+    : Tiled::TilesetFormat(parent)
+{
+}
+
+Tiled::SharedTileset XBinTilesetFormat::read(const QString &fileName)
+{
+    return nullptr;
+}
+
+bool XBinTilesetFormat::supportsFile(const QString &fileName) const
+{
+    return true;
+}
+
+bool XBinTilesetFormat::write(const Tiled::Tileset &tileset,
+                              const QString &fileName,
+                              Options options)
+{
+    QTextStream cout(stdout);
+
+    ByteBuf bb(16 * 1024);
+
+    std::ofstream file(fileName.toStdString(), std::ios::trunc | std::ios::binary);
+    if (!file)
+    {
+        mError = tr("Could not open file for writing");
+        return false;
+    }
+
+// 1 先构造这个对象
+//======================================================================================
+
+                std::shared_ptr<bmap::TileSet> item(new bmap::TileSet());
+
+                item->name = tileset.name().toStdString();
+                cout << "export tsx:" << (tileset.name()) << Qt::endl;
+                item->tilewidth = tileset.tileWidth();
+                item->tileheight = tileset.tileHeight();
+
+                const int tileSpacing = tileset.tileSpacing();
+                const int margin = tileset.margin();
+                // if (tileSpacing != 0)
+                {
+                    item->spacing = tileSpacing;
+                }
+                // if (margin != 0)
+                {
+                    item->margin = margin;
+                }
+                item->tilecount = tileset.tileCount();
+                item->columns = tileset.columnCount();
+
+                //...
+
+                // editor setting...
+
+                const QPoint offset = tileset.tileOffset();
+                if (!offset.isNull())
+                {
+                    item->tileoffset = std::make_shared<bmap::TileOffset>();
+                    item->tileoffset->x = offset.x();
+                    item->tileoffset->y = offset.y();
+                }
+
+                // orthogonal & gridsize...
+
+                if (tileset.orientation() != Tiled::Tileset::Orthogonal || tileset.gridSize() != tileset.tileSize())
+                {
+                    item->grid = std::make_shared<bmap::Grid>();
+                    item->grid->orientation = (bmap::Orientation)(tileset.orientation());
+                    item->grid->width = tileset.gridSize().width();
+                    item->grid->height = tileset.gridSize().height();
+                }
+
+                // transformation...
+
+                // properties...
+
+                // image
+                // item->image = std::make_shared<bmap::Image>();
+                writeImage(item->image, tileset.imageSource(), tileset.image(), tileset.transparentColor(), QSize(tileset.imageWidth(), tileset.imageHeight()));
+
+                // *******************************************************all tiles
+                const bool isCollection = tileset.isCollection();// 这个是指 零散图 还是 合图（image标签）
+                const bool includeAllTiles = isCollection || tileset.anyTileOutOfOrder();
+                for (const Tiled::Tile *tile : tileset.tiles())
+                {
+                    // if (includeAllTiles || includeTile(tile))
+                    {
+                        bright::SharedPtr<bmap::Tile> bt(new bmap::Tile());
+                        bt->id = tile->id();
+                        cout << "tileid:" << bt->id << Qt::endl;
+                        // ...
+
+                        if (isCollection)
+                        {
+                            
+                            writeImage(bt->image, tile->imageSource(), tile->image(), QColor(), tile->size());
+                        }
+                        // if (tile->objectGroup())
+                        //     writeObjectGroupForTile(*bt, *(tile->objectGroup()));
+
+                        if (tile->isAnimated())
+                        {
+                            bt->anis = std::make_shared<bmap::Anis>();
+                            // std::shared_ptr<bmap::Anis> ani(new bmap::Anis());
+                            const QVector<Tiled::Frame> &frames = tile->frames();
+                            for (const Tiled::Frame &frame : frames)
+                            {
+                                std::shared_ptr<bmap::Point> v2(new bmap::Point());
+                                v2->x = frame.tileId;
+                                v2->y = frame.duration;
+                                bt->anis->anilist.emplace_back(v2);
+                            }
+                        }
+                        item->tiles.push_back(bt);
+                    }
+                }//end tiles
+
+                // _map.tileset.push_back(item);
+                // mGidMapper.insert(firstGid, ts);
+                // firstGid += ts.nextTileId();
+
+// 2 写对象
+//======================================================================================
+
+                /**
+                 *      ::bright::int32 firstgid;
+                        ::bright::String source;
+                        ::bright::String name;
+                        ::bright::int32 tilewidth;
+                        ::bright::int32 tileheight;
+                        ::bright::int32 spacing;
+                        ::bright::int32 margin;
+                        ::bright::int32 tilecount;
+                        ::bright::int32 columns;
+                        ::bright::String backgroundcolor;
+                        ::bright::String objectalignment;
+                        ::bright::String tilerendersize;
+                        ::bright::String fillmode;
+                        ::bright::SharedPtr<bmap::TileOffset> tileoffset;
+                        ::bright::SharedPtr<bmap::Grid> grid;
+                        ::bright::HashMap<::bright::String, ::bright::SharedPtr<bmap::Property>> properties;
+                        ::bright::SharedPtr<bmap::Image> image;
+                        ::bright::Vector<::bright::SharedPtr<bmap::Tile>> tiles;
+                */
+                // bb.writeBool(item->firstgid != nullptr);
+                // if (ts->firstgid)
+                    // bb.writeInt(item->firstgid);
+                // bb.writeString(item->source);
+                bb.writeString(item->name);
+                bb.writeInt(item->tilewidth);
+                bb.writeInt(item->tileheight);
+                bb.writeInt(item->spacing);
+                bb.writeInt(item->margin);
+                bb.writeInt(item->tilecount);
+                bb.writeInt(item->columns);
+                // bb.writeString(item->backgroundcolor);
+                // bb.writeString(item->objectalignment);
+                // bb.writeString(item->tilerendersize);
+                // bb.writeString(item->fillmode);
+
+                // tileoffset
+                bb.writeBool(item->tileoffset != nullptr);
+                if (item->tileoffset) {
+                    bb.writeInt(item->tileoffset->x);
+                    bb.writeInt(item->tileoffset->y);
+                }
+                // grid
+                bb.writeBool(item->grid != nullptr);
+                if (item->grid) {
+                    bb.writeInt((int)item->grid->orientation);
+                    bb.writeInt(item->grid->width);
+                    bb.writeInt(item->grid->height);
+                }
+                // properties
+
+                // image
+                bb.writeBool(item->image != nullptr);
+                if (item->image) {
+                    bb.writeString(item->image->source);
+                    bb.writeInt(item->image->width);
+                    bb.writeInt(item->image->height);
+                    // bb.writeBytes(&item->image->fdata->bdata);
+                }
+
+                // tiles
+                bb.writeInt(item->tiles.size());
+                for (const bright::SharedPtr<bmap::Tile> &tile : item->tiles)
+                {
+                    /**
+                     *  ::bright::int32 id;
+                        ::bright::SharedPtr<bmap::Image> image;
+                        ::bright::Vector<::bright::SharedPtr<bmap::ObjectItem>> objs;
+                        ::bright::Vector<::bright::SharedPtr<bmap::Animation>> animation;
+                        ::bright::HashMap<::bright::String, ::bright::SharedPtr<bmap::Property>> properties;
+                    */
+                    bb.writeInt(tile->id);
+
+                    // image
+                    bb.writeBool(tile->image != nullptr);
+                    if (tile->image) {
+                        bb.writeString(tile->image->source);
+                        bb.writeInt(tile->image->width);
+                        bb.writeInt(tile->image->height);
+                        // bb.writeBytes(&tile->image->fdata->bdata);
+                    }
+
+                    // objs
+                    bb.writeBool(tile->objs != nullptr);
+                    if (tile->objs) {
+                        bb.writeInt(tile->objs->objlist.size());
+                        for (const bright::SharedPtr<bmap::ObjectItem> &obj : tile->objs->objlist)
+                        {
+                            /**
+                             *      ::bright::int32 id;
+                                    ::bright::int32 gid;
+                                    ::bright::int32 x;
+                                    ::bright::int32 y;
+                                    ::bright::int32 width;
+                                    ::bright::int32 height;
+                                    ::bright::Vector<::bright::SharedPtr<bmap::Point>> polygon;
+                                    ::bright::Vector<::bright::SharedPtr<bmap::Point>> polyline;
+                            */
+                            bb.writeInt(obj->id);
+                            bb.writeBool(obj->gid != nullptr);
+                            if (obj->gid) bb.writeInt(*obj->gid);
+                            bb.writeInt(obj->x);
+                            bb.writeInt(obj->y);
+                            bb.writeBool(obj->width != nullptr);
+                            if (obj->width) bb.writeInt(*obj->width);
+                            bb.writeBool(obj->height != nullptr);
+                            if (obj->height) bb.writeInt(*obj->height);
+
+                            bb.writeInt(obj->polygon.size());
+                            for (const bright::SharedPtr<bmap::Point> &p : obj->polygon)
+                            {
+                                bb.writeInt(p->x);
+                                bb.writeInt(p->y);
+                            }
+                            bb.writeInt(obj->polyline.size());
+                            for (const bright::SharedPtr<bmap::Point> &p : obj->polyline)
+                            {
+                                bb.writeInt(p->x);
+                                bb.writeInt(p->y);
+                            }
+                        }
+                    }
+
+                    // animation
+                    bb.writeBool(tile->anis != nullptr);
+                    if (tile->anis) {
+                        bb.writeInt(tile->anis->anilist.size());
+                        for (bright::SharedPtr<bmap::Point> &ani : tile->anis->anilist)
+                        {
+                            bb.writeInt(ani->x);
+                            bb.writeInt(ani->y);
+                            // bb.writeVector2(ani);// float 
+                        }
+                    }
+                    // properties
+
+                }// end tiles
+
+
+
+    file.write((const char*)bb.getDataUnsafe(), bb.size());
+    file.close();
+
+    return true;
+}
+
+void XBinTilesetFormat::writeImage(
+                                std::shared_ptr<bmap::Image> &bimg,
+                                const QUrl &source,
+                                const QPixmap &image,
+                                const QColor &transColor,
+                                const QSize size)
+{
+    if (image.isNull() && source.isEmpty())
+    {
+        // no need
+        // item->image->source = "";
+        // item->image->width = 0;
+        // item->image->height = 0;
+        return;
+    }
+    else
+    {
+        bimg = std::make_shared<bmap::Image>();
+        QString temp = Tiled::toFileReference(source, QString()).replace(".png", "");// 去扩展名 使用相对目录
+        // [lxm] 我们在编辑器直接指定图集和具体图片，不需要把全路径都写入，保留文件名即可
+        // QString temp = Tiled::toFileReference(source, mDir.path()).replace(".png", "");
+        temp = temp.mid(temp.lastIndexOf("/")+1);
+        bimg->source = temp.toStdString();
+
+        // if (ts->transparentColor().isValid()) item->image->trans = trans;
+        const QSize imageSize = image.isNull() ? size : image.size();
+        bimg->width = imageSize.width();
+        bimg->height = imageSize.height();
+        // if (ts->imageSource().isEmpty()) // 当前不会
+        // {
+        //     // item->image->data->encoding = "base64";
+
+        //     QBuffer buffer;
+        //     ts->image().save(&buffer, "png");
+        //     // 这个数据结构改二进制
+        //     // item->image->fdata->bdata.reserve(buffer.data().size());
+        //     // std::memcpy(item->image->fdata->bdata.data(), buffer.data().constData(), buffer.data().size());
+        // }
+    }
+}
+
+QString XBinTilesetFormat::nameFilter() const
+{
+    return tr("xbin tileset files (*.bin)");
+}
+
+QString XBinTilesetFormat::shortName() const
+{
+    return QStringLiteral("xbintileset");
+}
+
+QString XBinTilesetFormat::errorString() const
+{
+    return mError;
+}
 
 } // namespace Tbin

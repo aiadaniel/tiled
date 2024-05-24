@@ -22,6 +22,8 @@
 
 #include "xbin_global.h"
 
+#include "tilesetformat.h"
+
 #include "mapformat.h"
 #include "gidmapper.h"
 #include "plugin.h"
@@ -89,6 +91,36 @@ private:
     Tiled::GidMapper mGidMapper;
     Tiled::Map::LayerDataFormat mLayerDataFormat;
     int mCompressionlevel;
+};
+
+// 图集
+class XBINSHARED_EXPORT XBinTilesetFormat : public Tiled::TilesetFormat
+{
+    Q_OBJECT
+    Q_INTERFACES(Tiled::TilesetFormat)
+
+public:
+    XBinTilesetFormat(QObject *parent = nullptr);
+
+    Tiled::SharedTileset read(const QString &fileName) override;
+    bool supportsFile(const QString &fileName) const override;
+
+    bool write(const Tiled::Tileset &tileset, const QString &fileName, Options options) override;
+
+    QString nameFilter() const override;
+    QString shortName() const override;
+    QString errorString() const override;
+
+private:
+    void writeImage(
+                std::shared_ptr<bmap::Image> &item,
+                const QUrl &source,
+                const QPixmap &image,
+                const QColor &transColor,
+                const QSize size);
+
+protected:
+    QString mError;
 };
 
 } // namespace Json

@@ -117,7 +117,7 @@
     </bean>
     <!-- 瓦片集  -->
     <bean name="TileSet">
-        <var name="firstgid" type="int?"/>
+        <!-- <var name="firstgid" type="int"/> -->
         <!-- when firstgid > 0 & filename no empty 这里我们不再使用独立tsx文件，直接全部内置，一次解析 -->
         <!-- <var name="source" type="string"/> -->
 
@@ -236,14 +236,15 @@
 
         <!-- map结束 -->
 
-        <!-- 1.瓦片集 内嵌才有，可能多个 -->
-        <var name="tileset" type="list,TileSet"/>
+        <!-- 1.瓦片集 内嵌才有，可能多个 firstgid,source, 现改成独立方便复用 -->
+        <var name="tileset" type="map,int,string"/>
 
         <!-- 2.图层开始 tile/objectgroup/imagelayer/group -->
         <var name="layer" type="list,Layer"/>
 
     </bean>
 
+    <table name="TbTileSet" value="TileSet" input="bmap.xml"/>
     <table name="TbBMap" value="BMap" input="bmap.xml"/>
 	
 </module>
