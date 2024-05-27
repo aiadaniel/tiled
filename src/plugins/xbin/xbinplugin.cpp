@@ -192,6 +192,7 @@ namespace xbin
 
             // const QDir fileDir(QFileInfo(fileName).dir());
             mDir = QFileInfo(fileName).dir();
+            cout << "mDir:" << mDir.absolutePath() << Qt::endl;
 
             // 1.tileset
             mGidMapper.clear();
@@ -205,12 +206,26 @@ namespace xbin
                     const QString &fileName = ts->fileName();
                     if (!fileName.isEmpty())
                     {
+                        cout << "tsfile:" << fileName << Qt::endl;
                         // 独立tsx文件 独立才支持复用
                         QString source = fileName;//todo 相对路径
                         QString temp = source.replace(".tsx", "");
+                        QString temp2 = temp.replace(mDir.absolutePath(), "");
                         temp = temp.mid(temp.lastIndexOf("/")+1);
 
                         _map.tileset[firstGid] = temp.toStdString();
+
+                        // 直接在此增加tsx对应导出，解决手动一个一个导出的问题,see:  mainwindow.cpp->exportDocument
+                        FileFormat::Options options;//两个option区分下
+                        options |= FileFormat::WriteMinimized;
+                        XBinTilesetFormat tsx = new XBinMapFormat();
+                        QString fname = mDir.absolutePath() + temp2 + ".bin";
+                        if (tsx.write(*ts, fname, options)) {
+                            cout << "write tsxbin " << fname << " success!" << Qt::endl;
+                        } else {
+                            cout << "write tsxbin " << fname << " failed!" << Qt::endl;
+                        }
+
 
                         mGidMapper.insert(firstGid, ts);
 
