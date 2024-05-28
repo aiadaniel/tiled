@@ -38,18 +38,29 @@
         <var name="value" type="string"/>
     </bean>
 
-    <!-- object group item -->
+    <!-- object group item 说明：如使用继承方式如BaseObj-》ObjText/ObjImg/ObjPolygon这样，每个对象都会额外写入四字节的类型标志，用于区分抽象类的具体类型 -->
     <bean name="ObjectItem">
         <var name="id" type="int"/>
-        <!-- <var name="template" type="int"/> -->
-        <var name="gid" type="int?"/>
         <var name="x" type="int"/>
         <var name="y" type="int"/>
         <var name="width" type="int?"/>
         <var name="height" type="int?"/>
-        <!-- ... -->
+
+        <!-- text type -->
+        <!-- <var name="wrap" type="int"/> -->
+        <!-- <var name="color" type="int"/> -->
+        <!-- 这个字段跟img type共用 -->
+        <var name="name" type="string?"/>
+
+        <!-- img type -->
+        <var name="gid" type="int?"/>
+        <!-- <var name="name" type="string?"/> -->
+
+        <!-- polygon type -->
         <var name="polygon" type="list,Point"/>
-        <var name="polyline" type="list,Point"/>
+
+        <!-- 目前没用到 -->
+        <!-- <var name="polyline" type="list,Point"/> -->
     </bean>
 
     <bean name="FormatData">
@@ -179,6 +190,7 @@
         <var name="id" type="int"/>
         <var name="name" type="string"/>
         <!-- <var name="classname" type="string"/> -->
+        <!-- 用浮点 目前先试试够不够用 -->
         <var name="x" type="int?"/>
         <var name="y" type="int?"/>
 

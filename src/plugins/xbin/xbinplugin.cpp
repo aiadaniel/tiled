@@ -171,18 +171,11 @@ namespace xbin
             {
                 _map.hexsidelength = std::make_shared<bright::int32>(map->hexSideLength());
             } 
-            // else {
-            //     _map.hexsidelength = 0;
-            // }
             if (map->orientation() == Tiled::Map::Staggered || map->orientation() == Tiled::Map::Hexagonal)
             {
                 _map.staggeraxis = std::make_shared<bmap::StaggerAxis>( (bmap::StaggerAxis)(map->staggerAxis()) );
                 _map.staggerindex = std::make_shared<bmap::StaggerIndex>( (bmap::StaggerIndex)(map->staggerIndex()) );
             } 
-            // else {
-            //     _map.staggeraxis = bmap::StaggerAxis::StaggerX;
-            //     _map.staggerindex = bmap::StaggerIndex::StaggerOdd;
-            // }
 
             // 这两个仅编辑器有用
             // _map.nextlayerid = map->nextLayerId();
@@ -395,8 +388,6 @@ namespace xbin
                             ::bright::Vector<::bright::SharedPtr<bmap::Point>> polyline;
                     */
                     bb.writeInt(obj->id);
-                    bb.writeBool(obj->gid != nullptr);
-                    if (obj->gid) bb.writeInt(*obj->gid);
                     bb.writeInt(obj->x);
                     bb.writeInt(obj->y);
                     bb.writeBool(obj->width != nullptr);
@@ -404,18 +395,23 @@ namespace xbin
                     bb.writeBool(obj->height != nullptr);
                     if (obj->height) bb.writeInt(*obj->height);
 
+                    bb.writeBool(obj->name != nullptr);
+                    if (obj->name) bb.writeString(*obj->name);
+                    bb.writeBool(obj->gid != nullptr);
+                    if (obj->gid) bb.writeInt(*obj->gid);
+
                     bb.writeInt(obj->polygon.size());
                     for (const bright::SharedPtr<bmap::Point> &p : obj->polygon)
                     {
                         bb.writeInt(p->x);
                         bb.writeInt(p->y);
                     }
-                    bb.writeInt(obj->polyline.size());
-                    for (const bright::SharedPtr<bmap::Point> &p : obj->polyline)
-                    {
-                        bb.writeInt(p->x);
-                        bb.writeInt(p->y);
-                    }
+                    // bb.writeInt(obj->polyline.size());
+                    // for (const bright::SharedPtr<bmap::Point> &p : obj->polyline)
+                    // {
+                    //     bb.writeInt(p->x);
+                    //     bb.writeInt(p->y);
+                    // }
                 }
 
                 // layer (only for group layers)
@@ -670,6 +666,8 @@ namespace xbin
 
         // if (shouldWrite(!name.isEmpty(), isTemplateInstance, mapObject.propertyChanged(Tiled::MapObject::NameProperty)))
         //     w.writeAttribute(QStringLiteral("name"), name);
+        if (!name.isEmpty())
+            oitem->name = std::make_shared<bright::String>( name.toStdString() );
 
         // if (!className.isEmpty())
         //     w.writeAttribute(FileFormat::classPropertyNameForObject(), className);
@@ -705,7 +703,7 @@ namespace xbin
         // writeProperties(w, mapObject.properties());
 
         oitem->polygon.reserve(0);
-        oitem->polyline.reserve(0);
+        // oitem->polyline.reserve(0);
         switch (mapObject.shape())
         {
         case Tiled::MapObject::Rectangle:
@@ -731,14 +729,15 @@ namespace xbin
                 else
                 {
                     //oitem->polyline.clear();
-                    oitem->polyline.reserve(mapObject.polygon().size());
-                    for (const QPointF &point : mapObject.polygon())
-                    {
-                        bright::SharedPtr<bmap::Point> p(new bmap::Point());
-                        p->x = point.x();
-                        p->y = point.y();
-                        oitem->polyline.emplace_back(p);
-                    }
+
+                    // oitem->polyline.reserve(mapObject.polygon().size());
+                    // for (const QPointF &point : mapObject.polygon())
+                    // {
+                    //     bright::SharedPtr<bmap::Point> p(new bmap::Point());
+                    //     p->x = point.x();
+                    //     p->y = point.y();
+                    //     oitem->polyline.emplace_back(p);
+                    // }
                 }
             }
             break;
@@ -756,6 +755,9 @@ namespace xbin
                                 mapObject.propertyChanged(Tiled::MapObject::TextWordWrapProperty) ||
                                 mapObject.propertyChanged(Tiled::MapObject::TextColorProperty)))
                 // writeObjectText(w, mapObject.textData());
+                
+                // 直接使用name字段来存
+                oitem->name = std::make_shared<bright::String>( mapObject.textData().text.toStdString() );
                 break;
         }
         case Tiled::MapObject::Point:
@@ -1023,8 +1025,6 @@ bool XBinTilesetFormat::write(const Tiled::Tileset &tileset,
                                     ::bright::Vector<::bright::SharedPtr<bmap::Point>> polyline;
                             */
                             bb.writeInt(obj->id);
-                            bb.writeBool(obj->gid != nullptr);
-                            if (obj->gid) bb.writeInt(*obj->gid);
                             bb.writeInt(obj->x);
                             bb.writeInt(obj->y);
                             bb.writeBool(obj->width != nullptr);
@@ -1032,18 +1032,23 @@ bool XBinTilesetFormat::write(const Tiled::Tileset &tileset,
                             bb.writeBool(obj->height != nullptr);
                             if (obj->height) bb.writeInt(*obj->height);
 
+                            bb.writeBool(obj->name != nullptr);
+                            if (obj->name) bb.writeString(*obj->name);
+                            bb.writeBool(obj->gid != nullptr);
+                            if (obj->gid) bb.writeInt(*obj->gid);
+
                             bb.writeInt(obj->polygon.size());
                             for (const bright::SharedPtr<bmap::Point> &p : obj->polygon)
                             {
                                 bb.writeInt(p->x);
                                 bb.writeInt(p->y);
                             }
-                            bb.writeInt(obj->polyline.size());
-                            for (const bright::SharedPtr<bmap::Point> &p : obj->polyline)
-                            {
-                                bb.writeInt(p->x);
-                                bb.writeInt(p->y);
-                            }
+                            // bb.writeInt(obj->polyline.size());
+                            // for (const bright::SharedPtr<bmap::Point> &p : obj->polyline)
+                            // {
+                            //     bb.writeInt(p->x);
+                            //     bb.writeInt(p->y);
+                            // }
                         }
                     }
 
