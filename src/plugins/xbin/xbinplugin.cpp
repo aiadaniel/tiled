@@ -199,22 +199,25 @@ namespace xbin
                     const QString &fileName = ts->fileName();
                     if (!fileName.isEmpty())
                     {
-                        cout << "tsfile:" << fileName << Qt::endl;
+                        cout << "---tsfile:" << fileName << Qt::endl;
                         // 独立tsx文件 独立才支持复用
                         QString source = fileName;//todo 相对路径
                         QString temp = source.replace(".tsx", "");
                         QString temp2 = temp.replace(mDir.absolutePath(), "");
-                        temp = temp.mid(temp.lastIndexOf("/")+1);
+                        // cout << "temp2:" << temp2 << Qt::endl;
+                        // temp = temp.mid(temp.lastIndexOf("/")+1);
 
-                        _map.tileset[firstGid] = temp.toStdString();
 
                         // 直接在此增加tsx对应导出，解决手动一个一个导出的问题,see:  mainwindow.cpp->exportDocument
                         FileFormat::Options options;//两个option区分下
                         options |= FileFormat::WriteMinimized;
                         XBinTilesetFormat tsx = new XBinMapFormat();
                         QString fname = mDir.absolutePath() + temp2 + ".bin";
+                        QString fname2 = temp2 + ".bin";
+                        // cout << "fname2:" << fname2 << Qt::endl;
+                        _map.tileset[firstGid] = fname2.toStdString().substr(1, fname2.length() - 1);
                         if (tsx.write(*ts, fname, options)) {
-                            cout << "write tsxbin " << fname << " success!" << Qt::endl;
+                            // cout << "write tsxbin " << fname << " success!" << Qt::endl;
                         } else {
                             cout << "write tsxbin " << fname << " failed!" << Qt::endl;
                         }
@@ -768,7 +771,7 @@ namespace xbin
     }
     QString XBinMapFormat::nameFilter() const
     {
-        return tr("Xbin map files (*.bin)");
+        return tr("Xbin map files (*.tm)");
     }
 
     QString XBinMapFormat::shortName() const
@@ -822,6 +825,7 @@ bool XBinTilesetFormat::write(const Tiled::Tileset &tileset,
 
     ByteBuf bb(16 * 1024);
 
+    mDir = QFileInfo(fileName).dir();
     std::ofstream file(fileName.toStdString(), std::ios::trunc | std::ios::binary);
     if (!file)
     {
@@ -891,7 +895,7 @@ bool XBinTilesetFormat::write(const Tiled::Tileset &tileset,
                     {
                         bright::SharedPtr<bmap::Tile> bt(new bmap::Tile());
                         bt->id = tile->id();
-                        cout << "tileid:" << bt->id << Qt::endl;
+                        // cout << "tileid:" << bt->id << Qt::endl;
                         // ...
 
                         if (isCollection)
@@ -1082,6 +1086,7 @@ void XBinTilesetFormat::writeImage(
                                 const QColor &transColor,
                                 const QSize size)
 {
+    QTextStream cout(stdout);
     if (image.isNull() && source.isEmpty())
     {
         // no need
@@ -1093,10 +1098,12 @@ void XBinTilesetFormat::writeImage(
     else
     {
         bimg = std::make_shared<bmap::Image>();
-        QString temp = Tiled::toFileReference(source, QString()).replace(".png", "");// 去扩展名 使用相对目录
+        // QString temp = Tiled::toFileReference(source, QString());//.replace(".png", "");// 去扩展名 使用相对目录
         // [lxm] 我们在编辑器直接指定图集和具体图片，不需要把全路径都写入，保留文件名即可
-        // QString temp = Tiled::toFileReference(source, mDir.path()).replace(".png", "");
-        temp = temp.mid(temp.lastIndexOf("/")+1);
+        // [lxm] 二次更改回完整相对路径
+        QString temp = Tiled::toFileReference(source, mDir.path());//.replace(".png", "");
+        cout << "tsx temp:" << temp << Qt::endl;
+        // temp = temp.mid(temp.lastIndexOf("/")+1);
         bimg->source = temp.toStdString();
 
         // if (ts->transparentColor().isValid()) item->image->trans = trans;
@@ -1118,7 +1125,7 @@ void XBinTilesetFormat::writeImage(
 
 QString XBinTilesetFormat::nameFilter() const
 {
-    return tr("xbin tileset files (*.bin)");
+    return tr("xbin tileset files (*.tm)");
 }
 
 QString XBinTilesetFormat::shortName() const

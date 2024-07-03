@@ -121,6 +121,7 @@ private:
 
 protected:
     QString mError;
+    QDir mDir;
 };
 
 } // namespace Json
