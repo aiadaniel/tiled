@@ -1098,10 +1098,10 @@ void XBinTilesetFormat::writeImage(
     else
     {
         bimg = std::make_shared<bmap::Image>();
-        // QString temp = Tiled::toFileReference(source, QString());//.replace(".png", "");// 去扩展名 使用相对目录
+        // QString temp = Tiled::toFileReference(source, QString()).replace(".png", "");// 去扩展名 使用相对目录
         // [lxm] 我们在编辑器直接指定图集和具体图片，不需要把全路径都写入，保留文件名即可
         // [lxm] 二次更改回完整相对路径
-        QString temp = Tiled::toFileReference(source, mDir.path());//.replace(".png", "");
+        QString temp = Tiled::toFileReference(source, mDir.path()).replace(".png", "");
         cout << "tsx temp:" << temp << Qt::endl;
         // temp = temp.mid(temp.lastIndexOf("/")+1);
         bimg->source = temp.toStdString();
